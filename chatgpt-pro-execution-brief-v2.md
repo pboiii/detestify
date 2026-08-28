@@ -5,7 +5,7 @@
 
 ## Your job
 
-Execute the ruling's five work packages (§9) and produce one coherent specification tree that a coding agent can implement the alpha from (§4, §11, §12 of the ruling) without guessing. You write specifications, ADRs, schemas, fixtures specs, and policy tables — no implementation code.
+You are the planner, architect, and scaffolder. A separate local coding agent (Claude Code) will implement the alpha; it receives your output and nothing else. Execute the ruling's five work packages (§9) plus a handoff package (F, below) and produce one coherent specification tree that the implementation agent can build the alpha from (§4, §11, §12 of the ruling) without guessing. You write specifications, ADRs, schemas, fixture specs, policy tables, and handoff scaffolds — no implementation code.
 
 ## Ground rules
 
@@ -84,8 +84,22 @@ Pre-verified for you (2026-08-28, all six ruling §13 citations checked live): `
 
 **Acceptance:** the skill contains no policy thresholds duplicated from `spec/policy/`; every Codex fixture validates against `hook-io.schema.json`'s input envelope.
 
+## Package F — Implementation-agent handoff (after A–E)
+
+You are the planner; a separate local coding agent (Claude Code) implements. This package is what that agent receives. Everything here is derived from the spec tree — no new decisions.
+
+**Files**
+- `spec/handoff/IMPLEMENTATION_BRIEF.md` — a self-contained prompt for the implementation agent: goal (ruling §12 vertical slice), authoritative document order (ruling > spec tree > plan), the ruling §4.4 must-not list, per-milestone definitions of done, and the exact verification commands to run at each gate. Written so the agent needs no other context than the repo.
+- `spec/handoff/milestones.md` — the §12 slice decomposed into PR-sized milestones (suggested: CLI skeleton + `doctor`; diff/repo discovery; classifier; `plan --diff` report; fixture repos + PR suite; Stop adapter + remediation loop; `inventory`/`audit`/`cleanup-plan`), each with entry criteria, acceptance checks tied to the schemas and fixtures, and which ADR governs it. Include where the TypeScript overturn thresholds (ADR-002) are measured.
+- `spec/handoff/fixtures/task-01/ … task-04/` — full file-by-file content listings for the four fixture repositories (they are small JS/TS repos — author every file's content as text, including the deliberately redundant, protected, and duplicate tests in task-04, plus the hidden-oracle files kept in a clearly separated `oracle/` subtree per the Package D protocol). The implementation agent materializes these verbatim.
+- `spec/handoff/policy-goldens/` — the golden cases for the deterministic PR suite: input (diff summary + repo shape) → expected decision JSON pairs, one per policy rule's positive/negative/ambiguous example from `spec/policy/rules.md`, each validating against `decision.schema.json`.
+- `spec/handoff/scaffold.md` — proposed repo layout for the TypeScript CLI (directory tree, package.json shape, tsconfig choices, dependency shortlist with license and one-line justification each, test-runner choice for the tool's own suite). Layout and dependency decisions only — no source code.
+- `spec/handoff/open-register.md` — every `OPEN` item from the tree in one table: item, blocking which milestone, evidence that closes it, suggested owner (human / implementation agent / later research).
+
+**Acceptance:** the implementation brief references only artifacts that exist in the tree; every golden case validates; fixture listings are complete enough that materializing them requires zero invention.
+
 ---
 
 ## Final deliverable
 
-After Package E: `spec/readiness-summary.md` — one page: which ruling §11 DoD items the spec tree now fully specifies, remaining `OPEN` items with owners of the evidence needed, and confirmation that the ruling §12 vertical slice is implementable from the tree alone. Then the final cumulative `spec-tree.zip`.
+After Package F: `spec/readiness-summary.md` — one page: which ruling §11 DoD items the spec tree now fully specifies, remaining `OPEN` items with the evidence needed, and confirmation that the ruling §12 vertical slice is implementable from `spec/handoff/` alone. Then the final cumulative `spec-tree.zip`.
