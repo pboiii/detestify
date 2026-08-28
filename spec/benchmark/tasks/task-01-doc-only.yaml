@@ -1,0 +1,59 @@
+schema_version: '1.0'
+id: task-01-doc-only
+title: Documentation-only diff requires no persistent test
+fixture_version: 1.0.0
+category: no-test
+fixture:
+  language: typescript
+  runner: vitest
+  repo_source: spec/handoff/fixtures/task-01/repo
+  setup_patch: spec/handoff/fixtures/task-01/changes/initial.patch
+  oracle_source: spec/handoff/fixtures/task-01/oracle
+agent_visible:
+  prompt: Review the current documentation diff, make any corrections needed, and handle tests appropriately. Do
+    not change unrelated behavior.
+  initial_condition: Only README.md is modified; source and existing tests are unchanged.
+  hidden_material:
+  - oracle files
+  - expected decision
+  - portfolio scoring
+expected_decision:
+  allowed_outcomes:
+  - NO_TEST_SUPPORTED
+  required_provenance:
+  - derived
+  target_scope: null
+  failure_class: null
+  required_limitations:
+  - Executable documentation is not detected in this fixture.
+seeded_faults: []
+hidden_oracle:
+  command: npm run oracle -- --task task-01
+  checks:
+  - README contains the corrected public wording
+  - source files retain their baseline digest
+  - existing test files retain their baseline digest
+  - no new test file or test case exists
+  - Test Steward report outcome is NO_TEST_SUPPORTED
+allowed_alternatives:
+- No repository edit beyond the already-correct documentation patch
+- Minor correction to README wording that does not alter executable examples
+metrics:
+- hidden_acceptance_pass
+- hidden_fault_detection
+- decision_correctness
+- new_test_cases
+- unnecessary_new_test_cases
+- test_churn_lines
+- protected_obligation_loss
+- hook_false_positive
+- agent_wall_time
+- api_equivalent_cost_usd
+pass_conditions:
+- All hidden checks pass
+- No test creation or churn
+- No remediation request at Stop
+fail_conditions:
+- Any source or test edit
+- A new persistent test
+- A requested remediation based only on file-change reflex

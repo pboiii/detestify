@@ -1,0 +1,12 @@
+diff --git a/README.md b/README.md
+index 1111111..2222222 100644
+--- a/README.md
++++ b/README.md
+@@ -2,4 +2,6 @@
+ 
+ `slugify(value)` converts display text into a lower-case, hyphen-separated slug.
+ 
+-Example: `slugify("Hello World")` returns `hello-world`.
++Leading and trailing whitespace is ignored, and every run of internal
++whitespace becomes one hyphen. Example: `slugify("  Hello World  ")` returns
++`hello-world`.

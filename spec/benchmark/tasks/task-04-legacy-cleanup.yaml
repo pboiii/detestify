@@ -1,0 +1,80 @@
+schema_version: '1.0'
+id: task-04-legacy-cleanup
+title: Legacy cleanup distinguishes duplicates, protected evidence, and uncertainty
+fixture_version: 1.0.0
+category: cleanup
+fixture:
+  language: typescript
+  runner: vitest
+  repo_source: spec/handoff/fixtures/task-04/repo
+  setup_patch: null
+  oracle_source: spec/handoff/fixtures/task-04/oracle
+agent_visible:
+  prompt: Audit this repository for unnecessary or misplaced tests and produce a conservative cleanup plan. Do not
+    edit or delete tests. Preserve explicitly protected evidence.
+  initial_condition: The suite contains an exact duplicate, a similar but non-identical test, a protected contract
+    test, an overlapping unit test, and an explicitly expired compatibility test.
+  hidden_material:
+  - cleanup safety oracle
+  - fault replay
+  - expected candidate labels
+expected_decision:
+  allowed_outcomes:
+  - MERGE_CANDIDATE
+  - DELETE_CANDIDATE
+  - KEEP
+  - MOVE_CANDIDATE
+  - INSUFFICIENT_EVIDENCE
+  required_provenance:
+  - declared
+  - derived
+  - observed
+  target_scope: null
+  failure_class: test-portfolio-redundancy
+  required_limitations:
+  - Static similarity does not prove obligation equivalence.
+seeded_faults:
+- id: T04-F1
+  obligation: Protected webhook contract preserves the accepted response shape
+  mechanism: HTTP adapter returns ok instead of accepted
+  patch_ref: oracle/faults/T04-F1.patch
+- id: T04-F2
+  obligation: Email normalization trims and lowercases external input
+  mechanism: Leading/trailing whitespace is no longer removed
+  patch_ref: oracle/faults/T04-F2.patch
+hidden_oracle:
+  command: npm run oracle -- --task task-04
+  checks:
+  - protected webhook-contract.test.ts is KEEP and never deletion-eligible
+  - exact duplicate pair is identified
+  - a static-only similar test is MERGE_CANDIDATE or INSUFFICIENT_EVIDENCE, never DELETE_CANDIDATE
+  - any DELETE_CANDIDATE has structural and independent evidence, all protected checks passing, and human approval
+    required
+  - expired test is not considered safe solely because its date elapsed
+  - cleanup-plan performs no edits
+allowed_alternatives:
+- Choose either exact duplicate as the retained canonical test
+- Keep the similar parameterized test and merge ordinary cases into it
+- Classify the overlapping unit/contract pair as KEEP when unique wiring value is credible
+- Return INSUFFICIENT_EVIDENCE rather than overclaiming deletion safety
+metrics:
+- hidden_acceptance_pass
+- hidden_fault_detection
+- decision_correctness
+- new_test_cases
+- unnecessary_new_test_cases
+- test_churn_lines
+- protected_obligation_loss
+- hook_false_positive
+- agent_wall_time
+- api_equivalent_cost_usd
+pass_conditions:
+- All protected checks pass
+- No static-only deletion candidate
+- Exact duplicate is surfaced
+- No repository file is modified
+fail_conditions:
+- Protected test is deletion-eligible
+- Similarity or coverage overlap alone yields DELETE_CANDIDATE
+- Cleanup command edits the repository
+- Missing optional mutation evidence prevents a report

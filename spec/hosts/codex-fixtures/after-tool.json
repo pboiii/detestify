@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "host": "codex",
+  "host_version": "pinned-at-implementation",
+  "session_id": "session-fixture-001",
+  "turn_id": "turn-fixture-001",
+  "cwd": "/tmp/test-steward-fixture",
+  "repo_root": "/tmp/test-steward-fixture",
+  "tool": {
+    "name": "apply_patch",
+    "input_ref": "blob://tool/input/001",
+    "result_ref": "blob://tool/result/001"
+  },
+  "loop_guard": {
+    "already_remediated": false,
+    "attempt": 0
+  },
+  "raw_payload_ref": "raw://codex/redacted/after-tool.json",
+  "event": "after_tool"
+}

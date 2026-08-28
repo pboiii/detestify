@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-004-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_004_POSITIVE",
+  "summary": "Golden positive outcome for CHG-004.",
+  "rationale": "New deterministic discount rule with boundary values. Rule contract: Add or update focused behavior evidence for meaningful partitions and invariants.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-004-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-004-positive"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

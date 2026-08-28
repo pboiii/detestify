@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "tests": [
+    {
+      "path": "test/webhook-contract.test.ts",
+      "obligation_id": "OBL-WEBHOOK-ACK-CONTRACT",
+      "reason": "Public consumer contract for webhook acknowledgement wire shape",
+      "owner": "platform-api"
+    }
+  ]
+}

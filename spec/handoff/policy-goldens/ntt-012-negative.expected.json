@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-012-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_012_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-012.",
+  "rationale": "File edit changes an unguarded public behavior. Rule contract: Do not create a test solely because an agent edited a file.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-012-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-012-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

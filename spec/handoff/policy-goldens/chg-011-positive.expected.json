@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-011-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_011_POSITIVE",
+  "summary": "Golden positive outcome for CHG-011.",
+  "rationale": "Route configuration changes service wiring; add config validation/smoke. Rule contract: Use validation, smoke, and production-like wiring evidence rather than source-level unit tests.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-011-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-011-positive"
+  ],
+  "target": {
+    "scope": "system",
+    "purpose": "smoke",
+    "technique": "example",
+    "cadence": "release",
+    "failure_class": "deployment-wiring",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-003-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_CHG_003_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for CHG-003.",
+  "rationale": "AST says signatures unchanged but dynamic behavior cannot be established without running tests. Rule contract: Preserve existing behavior tests; substantial test churn is a smell.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-chg-003-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

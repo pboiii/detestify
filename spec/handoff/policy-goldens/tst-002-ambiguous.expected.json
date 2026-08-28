@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-002-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_TST_002_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for TST-002.",
+  "rationale": "A function named authorizeTransfer changes but no policy or reachable boundary is known; infer only advisory obligation. Rule contract: Prioritize authorization, accounting, idempotency, uniqueness, ordering, state transition, and irreversible-action invariants.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-tst-002-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

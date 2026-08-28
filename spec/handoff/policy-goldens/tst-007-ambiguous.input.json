@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-007-ambiguous",
+  "rule_id": "TST-007",
+  "polarity": "ambiguous",
+  "example": "A comment claims compliance significance without a maintained policy; mark inferred and advisory.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Nonfunctional obligation",
+      "A comment claims compliance significance without a maintained policy; mark inferred and advisory."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Use specialized evidence for security, privacy, accessibility, latency, resilience, recovery, and compliance at the observable scope.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

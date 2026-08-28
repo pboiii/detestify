@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-011-positive",
+  "rule_id": "NTT-011",
+  "polarity": "positive",
+  "example": "Tests pin each private method before a rewrite.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Replacement-freeze tests",
+      "Tests pin each private method before a rewrite."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:NTT-011"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not add tests whose only purpose is to freeze internals during planned replacement; characterize the replacement boundary.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

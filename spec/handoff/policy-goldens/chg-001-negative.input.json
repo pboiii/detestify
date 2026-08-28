@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-001-negative",
+  "rule_id": "CHG-001",
+  "polarity": "negative",
+  "example": "OpenAPI generated from Markdown changes.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Documentation/comments",
+      "OpenAPI generated from Markdown changes."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:CHG-001"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Documentation or comment-only changes default to NO_TEST unless executable documentation or generated contracts change.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

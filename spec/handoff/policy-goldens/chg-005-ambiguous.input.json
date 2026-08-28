@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-005-ambiguous",
+  "rule_id": "CHG-005",
+  "polarity": "ambiguous",
+  "example": "Bug report lacks a minimal reproduction.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Confirmed bug",
+      "Bug report lacks a minimal reproduction."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Find why evidence missed the bug and add one guard for that failure class only when needed.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

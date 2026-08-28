@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-007-negative",
+  "rule_id": "CHG-007",
+  "polarity": "negative",
+  "example": "Type-only local interface rename.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Schema/migration change",
+      "Type-only local interface rename."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:CHG-007"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Use compatibility, migration, rollback, and data-preservation evidence where applicable.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

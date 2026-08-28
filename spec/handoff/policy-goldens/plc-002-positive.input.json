@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "plc-002-positive",
+  "rule_id": "PLC-002",
+  "polarity": "positive",
+  "example": "Queue acknowledgement ordering is tested with a faithful queue harness.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Do not test below the failure boundary",
+      "Queue acknowledgement ordering is tested with a faithful queue harness."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:PLC-002"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Reject a lower-level test when the failure requires real wiring, state, or environment.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

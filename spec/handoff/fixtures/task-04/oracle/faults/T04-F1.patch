@@ -1,0 +1,9 @@
+diff --git a/src/webhook-response.ts b/src/webhook-response.ts
+--- a/src/webhook-response.ts
++++ b/src/webhook-response.ts
+@@
+-export type AcceptedResponse = { status: 202; body: { result: 'accepted' } };
++export type AcceptedResponse = { status: 202; body: { result: 'ok' } };
+@@
+-  return { status: 202, body: { result: 'accepted' } };
++  return { status: 202, body: { result: 'ok' } };

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-006-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_006_POSITIVE",
+  "summary": "Golden positive outcome for CHG-006.",
+  "rationale": "Webhook persistence claim/release changes; add integration retry test. Rule contract: Test at the real boundary or contract; mocks serve fault injection or rare states, not wiring proof.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-006-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-006-positive"
+  ],
+  "target": {
+    "scope": "integration",
+    "purpose": "regression",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "boundary-regression",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

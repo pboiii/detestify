@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-005-positive",
+  "rule_id": "NTT-005",
+  "polarity": "positive",
+  "example": "Test checks private collaborator call count but no outcome.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Mock interaction theater",
+      "Test checks private collaborator call count but no outcome."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:NTT-005"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not assert every internal mock call when state, output, or external contract matters.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

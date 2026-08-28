@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-005-negative",
+  "rule_id": "CHG-005",
+  "polarity": "negative",
+  "example": "Existing test already reproduces and fails.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Confirmed bug",
+      "Existing test already reproduces and fails."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:CHG-005"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Find why evidence missed the bug and add one guard for that failure class only when needed.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-001-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_001_POSITIVE",
+  "summary": "Golden positive outcome for TST-001.",
+  "rationale": "A CLI command gains a new documented exit state; no test asserts the observable exit code. Rule contract: Recommend persistent evidence when a distinct externally observable behavior changes and cheaper evidence does not already protect it.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-001-positive"
+  ],
+  "evidence_ids": [
+    "evidence-tst-001-positive"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

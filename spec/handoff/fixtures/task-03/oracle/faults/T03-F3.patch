@@ -1,0 +1,2 @@
+# Semantic fault adapter: acquire the event claim before signature verification.
+# The invalid-signature hidden check must detect the side effect.

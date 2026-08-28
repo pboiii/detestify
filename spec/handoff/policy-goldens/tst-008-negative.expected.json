@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-008-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_008_NEGATIVE",
+  "summary": "Golden negative outcome for TST-008.",
+  "rationale": "A two-state boolean formatter receives 100 enumerated examples. Rule contract: Prefer property, fuzz, metamorphic, combinatorial, or model-based techniques when many inputs share invariant structure.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-008-negative"
+  ],
+  "evidence_ids": [
+    "evidence-tst-008-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

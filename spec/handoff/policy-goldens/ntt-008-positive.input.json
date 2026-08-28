@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-008-positive",
+  "rule_id": "NTT-008",
+  "polarity": "positive",
+  "example": "All three tests assert the same pure calculation.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Cross-layer duplication",
+      "All three tests assert the same pure calculation."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:NTT-008"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not repeat the same behavior at unit, integration, and E2E scopes unless each detects a distinct failure mechanism.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

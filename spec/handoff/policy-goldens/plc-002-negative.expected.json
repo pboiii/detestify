@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-plc-002-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_PLC_002_NEGATIVE",
+  "summary": "Golden negative outcome for PLC-002.",
+  "rationale": "A policy helper unit test is claimed to prove HTTP middleware registration. Rule contract: Reject a lower-level test when the failure requires real wiring, state, or environment.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-plc-002-negative"
+  ],
+  "evidence_ids": [
+    "evidence-plc-002-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

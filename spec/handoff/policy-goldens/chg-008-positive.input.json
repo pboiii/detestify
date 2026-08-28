@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-008-positive",
+  "rule_id": "CHG-008",
+  "polarity": "positive",
+  "example": "Lock/ack order changes in queue consumer.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Concurrency/ordering change",
+      "Lock/ack order changes in queue consumer."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:CHG-008"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Use deterministic invariant evidence plus stress or schedule exploration when practical.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

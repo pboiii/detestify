@@ -1,0 +1,2 @@
+# Semantic fault adapter: remove or bypass the failure-path call to EventStore.release.
+# The harness applies this through an AST adapter so it remains valid across accepted implementations.

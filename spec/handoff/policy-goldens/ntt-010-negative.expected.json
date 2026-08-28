@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-010-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_010_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-010.",
+  "rationale": "Parser accepts adversarial external Unicode and has a security history. Rule contract: Do not generate edge cases with no plausible likelihood or impact.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-010-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-010-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-003-ambiguous",
+  "rule_id": "TST-003",
+  "polarity": "ambiguous",
+  "example": "Issue text reports a bug but no reproduction exists; classify as candidate and request evidence.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Confirmed regression",
+      "Issue text reports a bug but no reproduction exists; classify as candidate and request evidence."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Add one focused regression guard only when a reproduced failure class is not already reliably detected.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

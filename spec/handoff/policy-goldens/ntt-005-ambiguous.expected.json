@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-005-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_NTT_005_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for NTT-005.",
+  "rationale": "Only a mock is available for an external dependency; wiring confidence remains limited. Rule contract: Do not assert every internal mock call when state, output, or external contract matters.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-ntt-005-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

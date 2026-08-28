@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://test-steward.dev/schemas/report.schema.json",
+  "title": "Test Steward report",
+  "description": "Versioned report envelope for one alpha command execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "command",
+    "generated_at",
+    "repository",
+    "change",
+    "capabilities",
+    "obligation_candidates",
+    "evidence",
+    "decisions",
+    "limitations",
+    "timing"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Report schema version.",
+      "const": "1.0"
+    },
+    "report_id": {
+      "description": "Unique report identifier.",
+      "type": "string",
+      "minLength": 1
+    },
+    "command": {
+      "description": "Alpha command that produced the report.",
+      "enum": [
+        "plan --diff",
+        "verify-change",
+        "inventory",
+        "audit",
+        "cleanup-plan",
+        "doctor"
+      ]
+    },
+    "generated_at": {
+      "description": "RFC 3339 report generation time.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "repository": {
+      "description": "Repository snapshot metadata.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root",
+        "base_revision",
+        "head_revision",
+        "diff_fingerprint",
+        "dirty"
+      ],
+      "properties": {
+        "root": {
+          "description": "Canonical absolute repository root.",
+          "type": "string",
+          "minLength": 1
+        },
+        "base_revision": {
+          "description": "Resolved base revision, or null when no base exists.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head_revision": {
+          "description": "Resolved HEAD revision, or null for an unborn repository.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "diff_fingerprint": {
+          "description": "Stable digest of the analyzed diff and relevant untracked paths.",
+          "type": "string",
+          "minLength": 1
+        },
+        "dirty": {
+          "description": "Whether the analyzed worktree contains uncommitted changes.",
+          "type": "boolean"
+        }
+      }
+    },
+    "change": {
+      "description": "Top-level change classification.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classes",
+        "confidence",
+        "changed_paths",
+        "test_paths"
+      ],
+      "properties": {
+        "classes": {
+          "description": "One or more exposed change classes.",
+          "type": "array",
+          "items": {
+            "description": "Change class.",
+            "enum": [
+              "behavior",
+              "bugfix",
+              "refactor",
+              "boundary",
+              "schema",
+              "migration",
+              "configuration",
+              "generated",
+              "dependency",
+              "performance",
+              "security",
+              "documentation",
+              "test_only",
+              "mixed"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "confidence": {
+          "description": "Confidence based on deterministic and semantic inputs.",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            "unknown"
+          ]
+        },
+        "changed_paths": {
+          "description": "Repository-relative changed paths.",
+          "type": "array",
+          "items": {
+            "description": "Changed path.",
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "test_paths": {
+          "description": "Repository-relative changed or nearby test paths.",
+          "type": "array",
+          "items": {
+            "description": "Test path.",
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "capabilities": {
+      "description": "Capabilities available during this run.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner",
+        "ast",
+        "coverage",
+        "mutation",
+        "repository_commands_trusted",
+        "network_used"
+      ],
+      "properties": {
+        "runner": {
+          "description": "Detected runner capability.",
+          "enum": [
+            "vitest",
+            "jest",
+            "unknown",
+            "none"
+          ]
+        },
+        "ast": {
+          "description": "AST analysis availability.",
+          "enum": [
+            "type_resolved",
+            "syntactic_only",
+            "unavailable"
+          ]
+        },
+        "coverage": {
+          "description": "Coverage evidence availability.",
+          "enum": [
+            "available",
+            "unavailable",
+            "not_requested"
+          ]
+        },
+        "mutation": {
+          "description": "Mutation evidence availability.",
+          "enum": [
+            "available",
+            "unavailable",
+            "not_requested"
+          ]
+        },
+        "repository_commands_trusted": {
+          "description": "Whether the user granted repository command execution.",
+          "type": "boolean"
+        },
+        "network_used": {
+          "description": "Whether the run used network access. Zero-config alpha must report false.",
+          "type": "boolean"
+        }
+      }
+    },
+    "obligation_candidates": {
+      "description": "Full obligation candidate records.",
+      "type": "array",
+      "items": {
+        "$ref": "obligation-candidate.schema.json"
+      }
+    },
+    "evidence": {
+      "description": "Full evidence records.",
+      "type": "array",
+      "items": {
+        "$ref": "evidence.schema.json"
+      }
+    },
+    "decisions": {
+      "description": "Full decision records.",
+      "type": "array",
+      "items": {
+        "$ref": "decision.schema.json"
+      },
+      "minItems": 1
+    },
+    "limitations": {
+      "description": "Report-level limitations.",
+      "type": "array",
+      "items": {
+        "description": "A limitation.",
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "timing": {
+      "description": "Observed command timing; excluded from deterministic report hash unless explicitly requested.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elapsed_ms",
+        "phases"
+      ],
+      "properties": {
+        "elapsed_ms": {
+          "description": "Total monotonic elapsed milliseconds.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "phases": {
+          "description": "Per-phase elapsed milliseconds.",
+          "type": "object",
+          "additionalProperties": {
+            "description": "Phase elapsed milliseconds.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

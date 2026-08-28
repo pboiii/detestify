@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-003-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_TST_003_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for TST-003.",
+  "rationale": "Issue text reports a bug but no reproduction exists; classify as candidate and request evidence. Rule contract: Add one focused regression guard only when a reproduced failure class is not already reliably detected.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-tst-003-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

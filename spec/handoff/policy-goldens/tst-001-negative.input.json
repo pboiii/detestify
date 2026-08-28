@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-001-negative",
+  "rule_id": "TST-001",
+  "polarity": "negative",
+  "example": "A private helper is renamed while CLI output and existing tests remain unchanged.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Externally observable behavior",
+      "A private helper is renamed while CLI output and existing tests remain unchanged."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:TST-001"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Recommend persistent evidence when a distinct externally observable behavior changes and cheaper evidence does not already protect it.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-009-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_009_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-009.",
+  "rationale": "Golden protocol fixture has reviewed versioning and compatibility purpose. Rule contract: Do not rely on broad snapshots without a named semantic contract and review process.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-009-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-009-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

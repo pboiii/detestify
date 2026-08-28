@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-003-ambiguous",
+  "rule_id": "NTT-003",
+  "polarity": "ambiguous",
+  "example": "Mocks suggest order matters but no observable failure is identified.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Private methods and call order",
+      "Mocks suggest order matters but no observable failure is identified."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not freeze private methods or internal call order when public behavior captures the contract.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

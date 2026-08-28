@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-007-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_CHG_007_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for CHG-007.",
+  "rationale": "Schema file changed but generation provenance is unknown. Rule contract: Use compatibility, migration, rollback, and data-preservation evidence where applicable.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-chg-007-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-008-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_008_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-008.",
+  "rationale": "Unit proves calculation; integration proves database constraint; E2E proves auth/routing wiring. Rule contract: Do not repeat the same behavior at unit, integration, and E2E scopes unless each detects a distinct failure mechanism.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-008-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-008-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

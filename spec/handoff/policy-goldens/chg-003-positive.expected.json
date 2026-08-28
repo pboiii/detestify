@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-003-positive",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_003_POSITIVE",
+  "summary": "Golden positive outcome for CHG-003.",
+  "rationale": "Extract function without contract change; existing tests remain stable. Rule contract: Preserve existing behavior tests; substantial test churn is a smell.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-003-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-003-positive"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

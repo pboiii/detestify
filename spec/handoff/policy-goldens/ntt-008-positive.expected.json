@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-008-positive",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_008_POSITIVE",
+  "summary": "Golden positive outcome for NTT-008.",
+  "rationale": "All three tests assert the same pure calculation. Rule contract: Do not repeat the same behavior at unit, integration, and E2E scopes unless each detects a distinct failure mechanism.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-008-positive"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-008-positive"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

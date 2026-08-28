@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-005-negative",
+  "rule_id": "NTT-005",
+  "polarity": "negative",
+  "example": "Mock injects provider timeout to assert observable retry policy.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Mock interaction theater",
+      "Mock injects provider timeout to assert observable retry policy."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:NTT-005"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not assert every internal mock call when state, output, or external contract matters.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

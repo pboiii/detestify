@@ -1,0 +1,8 @@
+{
+  "expected_new_test_cases": 0,
+  "expected_test_churn_lines": 0,
+  "allowed_decisions": [
+    "NO_TEST_SUPPORTED",
+    "EXISTING_TEST_UPDATE_CANDIDATE"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-010-negative",
+  "rule_id": "NTT-010",
+  "polarity": "negative",
+  "example": "Parser accepts adversarial external Unicode and has a security history.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Speculative edge cases",
+      "Parser accepts adversarial external Unicode and has a security history."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:NTT-010"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not generate edge cases with no plausible likelihood or impact.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

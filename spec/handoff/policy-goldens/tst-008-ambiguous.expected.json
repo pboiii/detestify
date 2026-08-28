@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-008-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_TST_008_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for TST-008.",
+  "rationale": "The domain may be open-ended but no invariant is explicit; recommend an invariant discovery step, not automatic fuzzing. Rule contract: Prefer property, fuzz, metamorphic, combinatorial, or model-based techniques when many inputs share invariant structure.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-tst-008-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

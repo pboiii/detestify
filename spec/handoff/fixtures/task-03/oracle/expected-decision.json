@@ -1,0 +1,13 @@
+{
+  "allowed_outcomes": [
+    "NEW_TEST_CANDIDATE",
+    "EXISTING_TEST_UPDATE_CANDIDATE"
+  ],
+  "required_scope": "integration",
+  "required_failure_class_tokens": [
+    "claim",
+    "release",
+    "failure",
+    "retry"
+  ]
+}

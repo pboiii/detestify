@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-006-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_006_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-006.",
+  "rationale": "Uncovered branch corresponds to a plausible authorization denial. Rule contract: Do not add cases solely to execute every syntactic branch.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-006-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-006-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

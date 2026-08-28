@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-002-positive",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_002_POSITIVE",
+  "summary": "Golden positive outcome for NTT-002.",
+  "rationale": "Getter returns one field unchanged. Rule contract: Do not test trivial getters, setters, constants, aliases, or pass-throughs without policy, transformation, side effect, or compatibility obligation.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-002-positive"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-002-positive"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

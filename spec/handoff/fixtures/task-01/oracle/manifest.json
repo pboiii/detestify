@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "visible_allowed_paths": [
+    "README.md"
+  ],
+  "forbidden_changed_globs": [
+    "src/**",
+    "test/**"
+  ],
+  "expected_decision": "NO_TEST_SUPPORTED",
+  "faults": []
+}

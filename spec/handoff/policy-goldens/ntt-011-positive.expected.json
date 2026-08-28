@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-011-positive",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_011_POSITIVE",
+  "summary": "Golden positive outcome for NTT-011.",
+  "rationale": "Tests pin each private method before a rewrite. Rule contract: Do not add tests whose only purpose is to freeze internals during planned replacement; characterize the replacement boundary.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-011-positive"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-011-positive"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

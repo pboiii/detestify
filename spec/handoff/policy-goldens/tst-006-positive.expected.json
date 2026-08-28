@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-006-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_006_POSITIVE",
+  "summary": "Golden positive outcome for TST-006.",
+  "rationale": "Login-to-checkout is configured critical and routing/auth wiring changes. Rule contract: Maintain a small number of system-level checks for explicitly critical user or operator journeys.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-006-positive"
+  ],
+  "evidence_ids": [
+    "evidence-tst-006-positive"
+  ],
+  "target": {
+    "scope": "system",
+    "purpose": "acceptance",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "critical-journey-wiring",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

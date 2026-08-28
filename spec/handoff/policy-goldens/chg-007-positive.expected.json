@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-007-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_007_POSITIVE",
+  "summary": "Golden positive outcome for CHG-007.",
+  "rationale": "Non-null migration with backfill and rollback requirements. Rule contract: Use compatibility, migration, rollback, and data-preservation evidence where applicable.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-007-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-007-positive"
+  ],
+  "target": {
+    "scope": "integration",
+    "purpose": "migration",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "migration-compatibility",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

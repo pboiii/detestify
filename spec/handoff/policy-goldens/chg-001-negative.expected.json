@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-001-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_001_NEGATIVE",
+  "summary": "Golden negative outcome for CHG-001.",
+  "rationale": "OpenAPI generated from Markdown changes. Rule contract: Documentation or comment-only changes default to NO_TEST unless executable documentation or generated contracts change.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-001-negative"
+  ],
+  "evidence_ids": [
+    "evidence-chg-001-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

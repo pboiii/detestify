@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-005-ambiguous",
+  "rule_id": "TST-005",
+  "polarity": "ambiguous",
+  "example": "An exported TypeScript type changes but runtime consumers are unknown; report a derived contract candidate.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Contracts and compatibility",
+      "An exported TypeScript type changes but runtime consumers are unknown; report a derived contract candidate."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Protect consumer/provider contracts, schemas, formats, migrations, and version windows.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

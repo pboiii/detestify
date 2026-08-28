@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-011-negative",
+  "rule_id": "CHG-011",
+  "polarity": "negative",
+  "example": "Unit-test a constant copied from YAML.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Configuration/deployment change",
+      "Unit-test a constant copied from YAML."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:CHG-011"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Use validation, smoke, and production-like wiring evidence rather than source-level unit tests.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

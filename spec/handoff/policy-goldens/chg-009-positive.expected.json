@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-009-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_009_POSITIVE",
+  "summary": "Golden positive outcome for CHG-009.",
+  "rationale": "Signature verification middleware changes; test forged request rejection and no side effect. Rule contract: Derive tests from a declared or observed threat at the reachable boundary.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-009-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-009-positive"
+  ],
+  "target": {
+    "scope": "integration",
+    "purpose": "security",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "reachable-security-failure",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

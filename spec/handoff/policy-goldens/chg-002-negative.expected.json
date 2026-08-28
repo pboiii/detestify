@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-002-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_002_NEGATIVE",
+  "summary": "Golden negative outcome for CHG-002.",
+  "rationale": "A “formatting” commit changes a string literal. Rule contract: Formatting or mechanically proven refactors run affected existing checks and ordinarily add no tests.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-002-negative"
+  ],
+  "evidence_ids": [
+    "evidence-chg-002-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

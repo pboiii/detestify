@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-004-ambiguous",
+  "rule_id": "TST-004",
+  "polarity": "ambiguous",
+  "example": "A wrapper may call a remote provider, but the configured adapter cannot determine whether the path is live or mocked.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Risky boundary",
+      "A wrapper may call a remote provider, but the configured adapter cannot determine whether the path is live or mocked."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Place evidence at databases, queues, filesystems, networks, clocks, concurrency, serialization, providers, auth, or deployment boundaries when that is where failure occurs.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

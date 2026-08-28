@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-001-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_001_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-001.",
+  "rationale": "Custom serializer option changes wire compatibility. Rule contract: Do not test framework, language, ORM, serializer, client, or standard-library behavior the repository does not customize.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-001-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-001-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

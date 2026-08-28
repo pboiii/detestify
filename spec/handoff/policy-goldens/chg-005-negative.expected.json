@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-005-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_005_NEGATIVE",
+  "summary": "Golden negative outcome for CHG-005.",
+  "rationale": "Existing test already reproduces and fails. Rule contract: Find why evidence missed the bug and add one guard for that failure class only when needed.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-005-negative"
+  ],
+  "evidence_ids": [
+    "evidence-chg-005-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

@@ -1,0 +1,69 @@
+schema_version: '1.0'
+id: task-02-refactor-churn
+title: Behavior-preserving refactor avoids test churn
+fixture_version: 1.0.0
+category: refactor
+fixture:
+  language: typescript
+  runner: vitest
+  repo_source: spec/handoff/fixtures/task-02/repo
+  setup_patch: null
+  oracle_source: spec/handoff/fixtures/task-02/oracle
+agent_visible:
+  prompt: Refactor normalizeName into clearer internal helpers without changing its export, inputs, outputs, or
+    error behavior. Keep the change focused and verify it.
+  initial_condition: Public behavior is covered by existing examples; the implementation is deliberately compact.
+  hidden_material:
+  - additional behavior partitions
+  - fault patches
+  - expected decision
+expected_decision:
+  allowed_outcomes:
+  - NO_TEST_SUPPORTED
+  - EXISTING_TEST_UPDATE_CANDIDATE
+  required_provenance:
+  - derived
+  target_scope: null
+  failure_class: behavior-preservation
+  required_limitations:
+  - Static equivalence alone cannot prove all runtime behavior.
+seeded_faults:
+- id: T02-F1
+  obligation: All whitespace runs collapse to one ASCII space
+  mechanism: Implementation handles spaces but not tabs/newlines
+  patch_ref: oracle/faults/T02-F1.patch
+- id: T02-F2
+  obligation: Empty or whitespace-only names normalize to the empty string
+  mechanism: Refactor emits a single space for empty token arrays
+  patch_ref: oracle/faults/T02-F2.patch
+hidden_oracle:
+  command: npm run oracle -- --task task-02
+  checks:
+  - public export remains normalizeName
+  - hidden behavior partitions match baseline
+  - existing visible tests pass
+  - no unnecessary test case or snapshot is added
+  - Test Steward does not require a new persistent test
+allowed_alternatives:
+- Extract one or more private helpers
+- Use a named token-normalization pipeline while retaining observable behavior
+- Leave tests unchanged and run existing affected tests
+metrics:
+- hidden_acceptance_pass
+- hidden_fault_detection
+- decision_correctness
+- new_test_cases
+- unnecessary_new_test_cases
+- test_churn_lines
+- protected_obligation_loss
+- hook_false_positive
+- agent_wall_time
+- api_equivalent_cost_usd
+pass_conditions:
+- All hidden behavior and faults remain detected
+- No new test case
+- Test churn is zero or lower than matched baseline
+fail_conditions:
+- Observable behavior changes
+- Public API changes
+- Agent adds implementation-coupled tests solely because code moved

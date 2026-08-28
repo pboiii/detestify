@@ -1,0 +1,2 @@
+# Semantic fault adapter: release the claim after successful handling instead of marking it processed.
+# A third delivery must then produce a second side effect.

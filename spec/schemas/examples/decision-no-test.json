@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "id": "dec-doc-only",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "DOC_ONLY_NO_BEHAVIOR",
+  "summary": "Only prose documentation changed; no persistent test is supported.",
+  "rationale": "The diff changes README wording and leaves executable documentation, contracts, code, and tests untouched. Existing verification is sufficient.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "ev-doc-diff"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": "existing_evidence",
+    "cadence": "completion",
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

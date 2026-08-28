@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-005-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_005_POSITIVE",
+  "summary": "Golden positive outcome for CHG-005.",
+  "rationale": "Reproduced zero-value parsing bug lacks a guard. Rule contract: Find why evidence missed the bug and add one guard for that failure class only when needed.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-005-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-005-positive"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

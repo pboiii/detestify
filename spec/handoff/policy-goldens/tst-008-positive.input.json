@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-008-positive",
+  "rule_id": "TST-008",
+  "polarity": "positive",
+  "example": "A parser change affects arbitrary escaped strings; recommend round-trip/property evidence.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for High-input-space behavior",
+      "A parser change affects arbitrary escaped strings; recommend round-trip/property evidence."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:TST-008"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Prefer property, fuzz, metamorphic, combinatorial, or model-based techniques when many inputs share invariant structure.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

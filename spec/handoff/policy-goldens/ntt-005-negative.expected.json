@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-005-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_005_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-005.",
+  "rationale": "Mock injects provider timeout to assert observable retry policy. Rule contract: Do not assert every internal mock call when state, output, or external contract matters.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-005-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-005-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

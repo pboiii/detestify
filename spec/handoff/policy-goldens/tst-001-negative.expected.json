@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-001-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_001_NEGATIVE",
+  "summary": "Golden negative outcome for TST-001.",
+  "rationale": "A private helper is renamed while CLI output and existing tests remain unchanged. Rule contract: Recommend persistent evidence when a distinct externally observable behavior changes and cheaper evidence does not already protect it.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-001-negative"
+  ],
+  "evidence_ids": [
+    "evidence-tst-001-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

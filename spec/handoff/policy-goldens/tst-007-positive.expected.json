@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-007-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_007_POSITIVE",
+  "summary": "Golden positive outcome for TST-007.",
+  "rationale": "A declared p95 latency budget changes in a hot path; recommend a benchmark at that boundary. Rule contract: Use specialized evidence for security, privacy, accessibility, latency, resilience, recovery, and compliance at the observable scope.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-007-positive"
+  ],
+  "evidence_ids": [
+    "evidence-tst-007-positive"
+  ],
+  "target": {
+    "scope": "integration",
+    "purpose": "performance",
+    "technique": "example",
+    "cadence": "nightly",
+    "failure_class": "nonfunctional-obligation",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

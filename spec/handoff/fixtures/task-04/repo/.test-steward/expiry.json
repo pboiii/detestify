@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "records": [
+    {
+      "test_path": "test/legacy-v1.test.ts",
+      "expires_after": "2026-01-01",
+      "removal_condition": "No supported v1 consumer remains and the compatibility export is removed",
+      "owner": "identity-api"
+    }
+  ]
+}

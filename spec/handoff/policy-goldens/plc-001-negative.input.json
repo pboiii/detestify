@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "plc-001-negative",
+  "rule_id": "PLC-001",
+  "polarity": "negative",
+  "example": "A mocked unit test is selected for a database uniqueness constraint.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Cheapest valid scope",
+      "A mocked unit test is selected for a database uniqueness constraint."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:PLC-001"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Choose the least expensive scope that can trigger the relevant failure mechanism and observe the contract.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

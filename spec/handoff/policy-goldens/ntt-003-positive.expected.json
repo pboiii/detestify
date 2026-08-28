@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-003-positive",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_003_POSITIVE",
+  "summary": "Golden positive outcome for NTT-003.",
+  "rationale": "Test asserts three internal method calls in exact order. Rule contract: Do not freeze private methods or internal call order when public behavior captures the contract.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-003-positive"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-003-positive"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

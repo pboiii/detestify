@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-004-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_TST_004_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for TST-004.",
+  "rationale": "A wrapper may call a remote provider, but the configured adapter cannot determine whether the path is live or mocked. Rule contract: Place evidence at databases, queues, filesystems, networks, clocks, concurrency, serialization, providers, auth, or deployment boundaries when that is where failure occurs.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-tst-004-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

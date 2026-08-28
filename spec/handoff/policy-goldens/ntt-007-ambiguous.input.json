@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-007-ambiguous",
+  "rule_id": "NTT-007",
+  "polarity": "ambiguous",
+  "example": "Domain boundaries are undocumented; advise domain clarification.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Duplicate equivalence examples",
+      "Domain boundaries are undocumented; advise domain clarification."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not add multiple examples from one equivalence class without a new boundary, invariant, or domain distinction.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

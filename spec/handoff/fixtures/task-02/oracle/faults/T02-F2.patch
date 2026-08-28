@@ -1,0 +1,6 @@
+diff --git a/src/name.ts b/src/name.ts
+--- a/src/name.ts
++++ b/src/name.ts
+@@
+-  return value.trim().split(/\s+/).filter(Boolean).map((part) => part.toLowerCase()).join(' ');
++  return value.trim().split(/\s+/).map((part) => part.toLowerCase()).join(' ') || ' ';

@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-010-ambiguous",
+  "rule_id": "NTT-010",
+  "polarity": "ambiguous",
+  "example": "Exposure is unknown; return candidate with uncertainty.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Speculative edge cases",
+      "Exposure is unknown; return candidate with uncertainty."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not generate edge cases with no plausible likelihood or impact.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

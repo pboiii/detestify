@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-005-negative",
+  "rule_id": "TST-005",
+  "polarity": "negative",
+  "example": "An internal temporary object shape changes without crossing a boundary.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Contracts and compatibility",
+      "An internal temporary object shape changes without crossing a boundary."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:TST-005"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Protect consumer/provider contracts, schemas, formats, migrations, and version windows.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

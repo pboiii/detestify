@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-006-positive",
+  "rule_id": "TST-006",
+  "polarity": "positive",
+  "example": "Login-to-checkout is configured critical and routing/auth wiring changes.",
+  "diff_summary": {
+    "classes": [
+      "behavior"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Critical journeys",
+      "Login-to-checkout is configured critical and routing/auth wiring changes."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [
+      "golden:TST-006"
+    ],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Maintain a small number of system-level checks for explicitly critical user or operator journeys.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

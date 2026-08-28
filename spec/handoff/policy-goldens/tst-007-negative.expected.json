@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-007-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_007_NEGATIVE",
+  "summary": "Golden negative outcome for TST-007.",
+  "rationale": "A pure unit test asserts elapsed wall time for a network service SLA. Rule contract: Use specialized evidence for security, privacy, accessibility, latency, resilience, recovery, and compliance at the observable scope.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-007-negative"
+  ],
+  "evidence_ids": [
+    "evidence-tst-007-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

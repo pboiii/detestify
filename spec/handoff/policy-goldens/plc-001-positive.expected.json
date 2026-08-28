@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-plc-001-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_PLC_001_POSITIVE",
+  "summary": "Golden positive outcome for PLC-001.",
+  "rationale": "Pure tax calculation is covered by a narrow property test. Rule contract: Choose the least expensive scope that can trigger the relevant failure mechanism and observe the contract.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-plc-001-positive"
+  ],
+  "evidence_ids": [
+    "evidence-plc-001-positive"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

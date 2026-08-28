@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "report_id": "report-doc-only-001",
+  "command": "plan --diff",
+  "generated_at": "2026-08-28T15:00:01Z",
+  "repository": {
+    "root": "/tmp/test-steward/task-01",
+    "base_revision": "abc123",
+    "head_revision": "def456",
+    "diff_fingerprint": "sha256:doc-only-fixture",
+    "dirty": true
+  },
+  "change": {
+    "classes": [
+      "documentation"
+    ],
+    "confidence": "high",
+    "changed_paths": [
+      "README.md"
+    ],
+    "test_paths": [
+      "test/format.test.ts"
+    ]
+  },
+  "capabilities": {
+    "runner": "vitest",
+    "ast": "type_resolved",
+    "coverage": "not_requested",
+    "mutation": "not_requested",
+    "repository_commands_trusted": false,
+    "network_used": false
+  },
+  "obligation_candidates": [],
+  "evidence": [
+    {
+      "schema_version": "1.0",
+      "id": "ev-doc-diff",
+      "kind": "git_diff",
+      "status": "observed",
+      "source": {
+        "tool": "git",
+        "version": "2.51.0",
+        "path": null,
+        "command_fingerprint": "sha256:example-doc-diff-command",
+        "observed_at": "2026-08-28T15:00:00Z"
+      },
+      "findings": [
+        {
+          "code": "DOC_ONLY_PATHS",
+          "summary": "The diff changes README.md only.",
+          "paths": [
+            "README.md"
+          ]
+        }
+      ],
+      "data": {
+        "added_lines": 4,
+        "deleted_lines": 2,
+        "binary_files": 0
+      },
+      "gate_trust": "eligible",
+      "limitations": []
+    }
+  ],
+  "decisions": [
+    {
+      "schema_version": "1.0",
+      "id": "dec-doc-only",
+      "domain": "change",
+      "outcome": "NO_TEST_SUPPORTED",
+      "gate_action": "allow",
+      "confidence": "high",
+      "reason_code": "DOC_ONLY_NO_BEHAVIOR",
+      "summary": "Only prose documentation changed; no persistent test is supported.",
+      "rationale": "The diff changes README wording and leaves executable documentation, contracts, code, and tests untouched. Existing verification is sufficient.",
+      "remediation": null,
+      "obligation_candidate_ids": [],
+      "evidence_ids": [
+        "ev-doc-diff"
+      ],
+      "target": {
+        "scope": null,
+        "purpose": null,
+        "technique": "existing_evidence",
+        "cadence": "completion",
+        "failure_class": null,
+        "test_path": null
+      },
+      "cleanup_requirements": null,
+      "limitations": []
+    }
+  ],
+  "limitations": [
+    "No repository commands were executed in zero-config mode."
+  ],
+  "timing": {
+    "elapsed_ms": 118,
+    "phases": {
+      "repository_discovery": 18,
+      "diff_analysis": 33,
+      "ast_inventory": 54,
+      "report_write": 13
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-010-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_010_POSITIVE",
+  "summary": "Golden positive outcome for CHG-010.",
+  "rationale": "Generator template changes output schema; test generator contract. Rule contract: Test the generator or contract rather than every generated line unless artifacts are independently owned.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-010-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-010-positive"
+  ],
+  "target": {
+    "scope": "contract",
+    "purpose": "compatibility",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "generator-contract",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

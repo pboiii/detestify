@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://test-steward.dev/schemas/obligation-candidate.schema.json",
+  "title": "Obligation candidate",
+  "description": "A possible repository-owned behavior or invariant, with explicit provenance and uncertainty.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "statement",
+    "provenance",
+    "source_refs",
+    "materiality",
+    "gate_eligible",
+    "rationale",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Obligation candidate schema version.",
+      "const": "1.0"
+    },
+    "id": {
+      "description": "Stable report-local obligation candidate identifier.",
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "description": "Short human-readable obligation name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "statement": {
+      "description": "Observable behavior, contract, invariant, or quality obligation under consideration.",
+      "type": "string",
+      "minLength": 1
+    },
+    "provenance": {
+      "description": "Primary epistemic provenance class.",
+      "enum": [
+        "declared",
+        "observed",
+        "derived",
+        "inferred",
+        "unknown"
+      ]
+    },
+    "source_refs": {
+      "description": "Evidence, policy, path, contract, issue, or task references supporting the candidate.",
+      "type": "array",
+      "items": {
+        "description": "Opaque reference resolved through the report evidence registry.",
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "materiality": {
+      "description": "Ordinal materiality axes; these are not multiplied into a scalar.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consequence",
+        "exposure",
+        "change_mechanism",
+        "evidence_gap",
+        "confidence",
+        "tier"
+      ],
+      "properties": {
+        "consequence": {
+          "description": "Worst credible consequence category.",
+          "enum": [
+            "negligible",
+            "degraded",
+            "irreversible",
+            "regulated_or_safety_critical"
+          ]
+        },
+        "exposure": {
+          "description": "Who or what can exercise the behavior.",
+          "enum": [
+            "internal",
+            "user_facing",
+            "cross_system",
+            "adversarial"
+          ]
+        },
+        "change_mechanism": {
+          "description": "Mechanism by which the diff can alter behavior.",
+          "enum": [
+            "no_behavior",
+            "pure_behavior",
+            "boundary",
+            "stateful_or_irreversible"
+          ]
+        },
+        "evidence_gap": {
+          "description": "How much relevant evidence is missing.",
+          "enum": [
+            "none",
+            "partial",
+            "material",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "description": "Confidence source for the obligation and materiality judgment.",
+          "enum": [
+            "explicit",
+            "observed",
+            "derived",
+            "inferred",
+            "unknown"
+          ]
+        },
+        "tier": {
+          "description": "Resulting ordinal materiality tier.",
+          "enum": [
+            "T0",
+            "T1",
+            "T2",
+            "T3",
+            "T4",
+            "TU"
+          ]
+        }
+      }
+    },
+    "gate_eligible": {
+      "description": "Whether this candidate can participate in a configured completion gate under ADR-004.",
+      "type": "boolean"
+    },
+    "rationale": {
+      "description": "Why this is or is not a credible repository obligation.",
+      "type": "string",
+      "minLength": 1
+    },
+    "limitations": {
+      "description": "Known missing evidence, ambiguity, or unsupported analysis.",
+      "type": "array",
+      "items": {
+        "description": "A specific limitation.",
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-plc-001-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_PLC_001_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for PLC-001.",
+  "rationale": "A service wrapper could fail in transformation or provider wiring; recommend both candidate scopes with unresolved distinction. Rule contract: Choose the least expensive scope that can trigger the relevant failure mechanism and observe the contract.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-plc-001-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

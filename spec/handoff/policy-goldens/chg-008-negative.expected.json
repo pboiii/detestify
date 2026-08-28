@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-008-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_008_NEGATIVE",
+  "summary": "Golden negative outcome for CHG-008.",
+  "rationale": "Synchronous immutable map rename. Rule contract: Use deterministic invariant evidence plus stress or schedule exploration when practical.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-008-negative"
+  ],
+  "evidence_ids": [
+    "evidence-chg-008-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

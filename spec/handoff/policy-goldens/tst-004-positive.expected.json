@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-004-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_004_POSITIVE",
+  "summary": "Golden positive outcome for TST-004.",
+  "rationale": "Transaction isolation behavior changes; recommend a compatible real-database integration test. Rule contract: Place evidence at databases, queues, filesystems, networks, clocks, concurrency, serialization, providers, auth, or deployment boundaries when that is where failure occurs.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-004-positive"
+  ],
+  "evidence_ids": [
+    "evidence-tst-004-positive"
+  ],
+  "target": {
+    "scope": "integration",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "boundary-failure",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-008-ambiguous",
+  "rule_id": "TST-008",
+  "polarity": "ambiguous",
+  "example": "The domain may be open-ended but no invariant is explicit; recommend an invariant discovery step, not automatic fuzzing.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for High-input-space behavior",
+      "The domain may be open-ended but no invariant is explicit; recommend an invariant discovery step, not automatic fuzzing."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Prefer property, fuzz, metamorphic, combinatorial, or model-based techniques when many inputs share invariant structure.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

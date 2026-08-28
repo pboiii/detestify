@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-002-ambiguous",
+  "rule_id": "CHG-002",
+  "polarity": "ambiguous",
+  "example": "Parser diagnostics prevent proving AST equivalence.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Formatting/mechanical refactor",
+      "Parser diagnostics prevent proving AST equivalence."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Formatting or mechanically proven refactors run affected existing checks and ordinarily add no tests.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

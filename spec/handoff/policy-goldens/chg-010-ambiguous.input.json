@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-010-ambiguous",
+  "rule_id": "CHG-010",
+  "polarity": "ambiguous",
+  "example": "Generated file changes without source mapping; return insufficient evidence.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Generated code",
+      "Generated file changes without source mapping; return insufficient evidence."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Test the generator or contract rather than every generated line unless artifacts are independently owned.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

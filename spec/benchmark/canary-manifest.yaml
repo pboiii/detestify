@@ -1,0 +1,71 @@
+schema_version: '1.0'
+name: test-steward-alpha-dual-host-canary
+status: DECIDED
+schedule:
+- nightly
+- release-candidate
+hosts:
+- id: claude
+  certification: live-command-hook
+  tasks:
+  - task-01-doc-only
+  - task-02-refactor-churn
+  - task-03-boundary-bug
+  - task-04-legacy-cleanup
+  arms:
+  - baseline
+  - full
+  max_repetitions_per_task_arm: 3
+  caps:
+    max_runs: 24
+    max_wall_clock_hours: 12
+    max_api_equivalent_usd: 250
+- id: codex
+  certification: live-command-hook
+  tasks:
+  - task-01-doc-only
+  - task-02-refactor-churn
+  - task-03-boundary-bug
+  - task-04-legacy-cleanup
+  arms:
+  - baseline
+  - full
+  max_repetitions_per_task_arm: 3
+  caps:
+    max_runs: 24
+    max_wall_clock_hours: 12
+    max_api_equivalent_usd: 250
+total_caps:
+  max_runs: 48
+  max_api_equivalent_usd: 500
+reservation_policy:
+  before_run: reserve one run, remaining host wall-clock allowance, and estimated API-equivalent cost
+  on_cap_risk: skip the run and record budget_exhausted; never exceed the cap
+  recalibration: requires measured evidence, an entry in spec/conflicts.md, and owner approval
+comparison:
+  primary: baseline versus full within each host
+  cross_host: side-by-side descriptive comparison; one host cannot offset the other
+  metrics:
+  - hidden_acceptance_pass
+  - hidden_fault_detection
+  - unnecessary_test_creation
+  - test_churn
+  - protected_obligation_loss
+  - hook_false_positive_rate
+  - bounded_remediation_success
+  - agent_wall_time
+  - api_equivalent_cost_usd
+alpha_success:
+  per_host: no hidden-fault regression and reduced unnecessary creation or churn versus baseline on at least 3 of
+    4 tasks
+  required_hosts:
+  - claude
+  - codex
+artifacts:
+- run manifest
+- repository diff
+- raw Test Steward reports
+- host hook receipts
+- oracle outcomes
+- timing and cost receipts
+- limitations and infrastructure errors

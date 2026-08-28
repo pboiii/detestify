@@ -1,0 +1,502 @@
+{
+  "schema_version": "1.0",
+  "rules": [
+    {
+      "id": "TST-001",
+      "title": "Externally observable behavior",
+      "statement": "Recommend persistent evidence when a distinct externally observable behavior changes and cheaper evidence does not already protect it.",
+      "inputs": [
+        "diff",
+        "public boundary inventory",
+        "existing tests"
+      ],
+      "classification": "semantic",
+      "positive": "A CLI command gains a new documented exit state; no test asserts the observable exit code.",
+      "negative": "A private helper is renamed while CLI output and existing tests remain unchanged.",
+      "ambiguous": "An exported function changes, but consumers and compatibility status are unknown; derive a candidate and disclose uncertainty.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "TST-002",
+      "title": "Business or safety invariant",
+      "statement": "Prioritize authorization, accounting, idempotency, uniqueness, ordering, state transition, and irreversible-action invariants.",
+      "inputs": [
+        "diff",
+        "declared policy",
+        "boundary facts",
+        "existing tests"
+      ],
+      "classification": "semantic",
+      "positive": "A payment retry path can emit the side effect twice and no invariant test exists.",
+      "negative": "A display-only sort preference changes with no persisted or contractual invariant.",
+      "ambiguous": "A function named authorizeTransfer changes but no policy or reachable boundary is known; infer only advisory obligation.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "TST-003",
+      "title": "Confirmed regression",
+      "statement": "Add one focused regression guard only when a reproduced failure class is not already reliably detected.",
+      "inputs": [
+        "observed failure",
+        "existing test results",
+        "diff"
+      ],
+      "classification": "heuristic",
+      "positive": "A bug reproduction fails and no existing test covers retry after a failed claim.",
+      "negative": "An existing focused test already fails on the reproduced bug; fix code without adding a duplicate test.",
+      "ambiguous": "Issue text reports a bug but no reproduction exists; classify as candidate and request evidence.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "TST-004",
+      "title": "Risky boundary",
+      "statement": "Place evidence at databases, queues, filesystems, networks, clocks, concurrency, serialization, providers, auth, or deployment boundaries when that is where failure occurs.",
+      "inputs": [
+        "boundary inventory",
+        "diff",
+        "existing integration tests"
+      ],
+      "classification": "heuristic",
+      "positive": "Transaction isolation behavior changes; recommend a compatible real-database integration test.",
+      "negative": "A pure string formatter changes; a database test would add no distinct signal.",
+      "ambiguous": "A wrapper may call a remote provider, but the configured adapter cannot determine whether the path is live or mocked.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "TST-005",
+      "title": "Contracts and compatibility",
+      "statement": "Protect consumer/provider contracts, schemas, formats, migrations, and version windows.",
+      "inputs": [
+        "contract files",
+        "exports/routes",
+        "diff",
+        "consumer evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "A JSON response field becomes nullable and a consumer contract exists.",
+      "negative": "An internal temporary object shape changes without crossing a boundary.",
+      "ambiguous": "An exported TypeScript type changes but runtime consumers are unknown; report a derived contract candidate.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "TST-006",
+      "title": "Critical journeys",
+      "statement": "Maintain a small number of system-level checks for explicitly critical user or operator journeys.",
+      "inputs": [
+        "critical path config",
+        "system test inventory",
+        "diff"
+      ],
+      "classification": "semantic",
+      "positive": "Login-to-checkout is configured critical and routing/auth wiring changes.",
+      "negative": "Every minor component visual variation receives a new end-to-end test.",
+      "ambiguous": "A workflow appears critical from naming but is not declared; advise declaration rather than gate.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "TST-007",
+      "title": "Nonfunctional obligation",
+      "statement": "Use specialized evidence for security, privacy, accessibility, latency, resilience, recovery, and compliance at the observable scope.",
+      "inputs": [
+        "quality policy",
+        "benchmark/security config",
+        "diff"
+      ],
+      "classification": "non-automatable",
+      "positive": "A declared p95 latency budget changes in a hot path; recommend a benchmark at that boundary.",
+      "negative": "A pure unit test asserts elapsed wall time for a network service SLA.",
+      "ambiguous": "A comment claims compliance significance without a maintained policy; mark inferred and advisory.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "TST-008",
+      "title": "High-input-space behavior",
+      "statement": "Prefer property, fuzz, metamorphic, combinatorial, or model-based techniques when many inputs share invariant structure.",
+      "inputs": [
+        "AST facts",
+        "input domain",
+        "existing parametrization"
+      ],
+      "classification": "semantic",
+      "positive": "A parser change affects arbitrary escaped strings; recommend round-trip/property evidence.",
+      "negative": "A two-state boolean formatter receives 100 enumerated examples.",
+      "ambiguous": "The domain may be open-ended but no invariant is explicit; recommend an invariant discovery step, not automatic fuzzing.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "PLC-001",
+      "title": "Cheapest valid scope",
+      "statement": "Choose the least expensive scope that can trigger the relevant failure mechanism and observe the contract.",
+      "inputs": [
+        "failure mechanism",
+        "observable contract",
+        "test topology"
+      ],
+      "classification": "semantic",
+      "positive": "Pure tax calculation is covered by a narrow property test.",
+      "negative": "A mocked unit test is selected for a database uniqueness constraint.",
+      "ambiguous": "A service wrapper could fail in transformation or provider wiring; recommend both candidate scopes with unresolved distinction.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "PLC-002",
+      "title": "Do not test below the failure boundary",
+      "statement": "Reject a lower-level test when the failure requires real wiring, state, or environment.",
+      "inputs": [
+        "boundary facts",
+        "failure mechanism",
+        "test environment"
+      ],
+      "classification": "heuristic",
+      "positive": "Queue acknowledgement ordering is tested with a faithful queue harness.",
+      "negative": "A policy helper unit test is claimed to prove HTTP middleware registration.",
+      "ambiguous": "The repository uses a custom in-memory emulator whose fidelity is undocumented; disclose uncertainty.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-001",
+      "title": "Documentation/comments",
+      "statement": "Documentation or comment-only changes default to NO_TEST unless executable documentation or generated contracts change.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "deterministic",
+      "positive": "README wording only.",
+      "negative": "OpenAPI generated from Markdown changes.",
+      "ambiguous": "A code block may be executed by docs CI, but no docs config is available.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-002",
+      "title": "Formatting/mechanical refactor",
+      "statement": "Formatting or mechanically proven refactors run affected existing checks and ordinarily add no tests.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "deterministic",
+      "positive": "Prettier-only diff with AST equivalence.",
+      "negative": "A \u201cformatting\u201d commit changes a string literal.",
+      "ambiguous": "Parser diagnostics prevent proving AST equivalence.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-003",
+      "title": "Behavior-preserving structural refactor",
+      "statement": "Preserve existing behavior tests; substantial test churn is a smell.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Extract function without contract change; existing tests remain stable.",
+      "negative": "Refactor changes retry ownership and requires boundary evidence.",
+      "ambiguous": "AST says signatures unchanged but dynamic behavior cannot be established without running tests.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-004",
+      "title": "New pure behavior",
+      "statement": "Add or update focused behavior evidence for meaningful partitions and invariants.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "New deterministic discount rule with boundary values.",
+      "negative": "New alias delegates unchanged behavior.",
+      "ambiguous": "Function includes hidden I/O despite pure-looking signature.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-005",
+      "title": "Confirmed bug",
+      "statement": "Find why evidence missed the bug and add one guard for that failure class only when needed.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Reproduced zero-value parsing bug lacks a guard.",
+      "negative": "Existing test already reproduces and fails.",
+      "ambiguous": "Bug report lacks a minimal reproduction.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-006",
+      "title": "Boundary/dependency change",
+      "statement": "Test at the real boundary or contract; mocks serve fault injection or rare states, not wiring proof.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Webhook persistence claim/release changes; add integration retry test.",
+      "negative": "Internal helper call changes only.",
+      "ambiguous": "Dependency upgrade changelog is unavailable and behavior impact is unknown.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-007",
+      "title": "Schema/migration change",
+      "statement": "Use compatibility, migration, rollback, and data-preservation evidence where applicable.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Non-null migration with backfill and rollback requirements.",
+      "negative": "Type-only local interface rename.",
+      "ambiguous": "Schema file changed but generation provenance is unknown.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-008",
+      "title": "Concurrency/ordering change",
+      "statement": "Use deterministic invariant evidence plus stress or schedule exploration when practical.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Lock/ack order changes in queue consumer.",
+      "negative": "Synchronous immutable map rename.",
+      "ambiguous": "Concurrency is hidden behind a third-party scheduler with no harness.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-009",
+      "title": "Security-sensitive change",
+      "statement": "Derive tests from a declared or observed threat at the reachable boundary.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Signature verification middleware changes; test forged request rejection and no side effect.",
+      "negative": "Private helper comment mentions security without reachable use.",
+      "ambiguous": "Potential auth path inferred from names only.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-010",
+      "title": "Generated code",
+      "statement": "Test the generator or contract rather than every generated line unless artifacts are independently owned.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Generator template changes output schema; test generator contract.",
+      "negative": "Add one test per regenerated client method.",
+      "ambiguous": "Generated file changes without source mapping; return insufficient evidence.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "CHG-011",
+      "title": "Configuration/deployment change",
+      "statement": "Use validation, smoke, and production-like wiring evidence rather than source-level unit tests.",
+      "inputs": [
+        "diff paths",
+        "AST/diff facts",
+        "runner and contract inventory"
+      ],
+      "classification": "heuristic",
+      "positive": "Route configuration changes service wiring; add config validation/smoke.",
+      "negative": "Unit-test a constant copied from YAML.",
+      "ambiguous": "Configuration may be inert in current environment; deployment mapping absent.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-001",
+      "title": "Uncustomized dependency behavior",
+      "statement": "Do not test framework, language, ORM, serializer, client, or standard-library behavior the repository does not customize.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "A test merely proves Array.sort sorts.",
+      "negative": "Custom serializer option changes wire compatibility.",
+      "ambiguous": "Wrapper configuration may alter defaults but config execution is untrusted.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-002",
+      "title": "Trivial accessors and pass-throughs",
+      "statement": "Do not test trivial getters, setters, constants, aliases, or pass-throughs without policy, transformation, side effect, or compatibility obligation.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "deterministic",
+      "positive": "Getter returns one field unchanged.",
+      "negative": "Wrapper enforces tenant filtering before delegation.",
+      "ambiguous": "Pass-through adds logging whose compliance significance is unknown.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-003",
+      "title": "Private methods and call order",
+      "statement": "Do not freeze private methods or internal call order when public behavior captures the contract.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Test asserts three internal method calls in exact order.",
+      "negative": "Call ordering is itself a declared transaction invariant.",
+      "ambiguous": "Mocks suggest order matters but no observable failure is identified.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-004",
+      "title": "Compile/type guarantees",
+      "statement": "Do not repeat compiler or type-system guarantees at runtime unless untyped/serialized input crosses a boundary.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "deterministic",
+      "positive": "Runtime test asserts a TypeScript-only union rejects compilation.",
+      "negative": "JSON input is validated at runtime against the union contract.",
+      "ambiguous": "Build uses transpile-only mode and type checking is not confirmed.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-005",
+      "title": "Mock interaction theater",
+      "statement": "Do not assert every internal mock call when state, output, or external contract matters.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Test checks private collaborator call count but no outcome.",
+      "negative": "Mock injects provider timeout to assert observable retry policy.",
+      "ambiguous": "Only a mock is available for an external dependency; wiring confidence remains limited.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-006",
+      "title": "Coverage chasing",
+      "statement": "Do not add cases solely to execute every syntactic branch.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Test adds an impossible branch case to raise coverage.",
+      "negative": "Uncovered branch corresponds to a plausible authorization denial.",
+      "ambiguous": "Branch plausibility is unknown from static facts.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-007",
+      "title": "Duplicate equivalence examples",
+      "statement": "Do not add multiple examples from one equivalence class without a new boundary, invariant, or domain distinction.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Tests repeat three ordinary positive integers.",
+      "negative": "Zero, maximum, and negative values represent distinct partitions.",
+      "ambiguous": "Domain boundaries are undocumented; advise domain clarification.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-008",
+      "title": "Cross-layer duplication",
+      "statement": "Do not repeat the same behavior at unit, integration, and E2E scopes unless each detects a distinct failure mechanism.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "All three tests assert the same pure calculation.",
+      "negative": "Unit proves calculation; integration proves database constraint; E2E proves auth/routing wiring.",
+      "ambiguous": "Layer overlap exists but unique mechanism cannot be established.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-009",
+      "title": "Blind snapshots",
+      "statement": "Do not rely on broad snapshots without a named semantic contract and review process.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Agent regenerates a 2,000-line UI snapshot after every change.",
+      "negative": "Golden protocol fixture has reviewed versioning and compatibility purpose.",
+      "ambiguous": "Snapshot is small but its contract is undocumented.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-010",
+      "title": "Speculative edge cases",
+      "statement": "Do not generate edge cases with no plausible likelihood or impact.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Agent enumerates exotic Unicode combinations for an internal identifier with no external input.",
+      "negative": "Parser accepts adversarial external Unicode and has a security history.",
+      "ambiguous": "Exposure is unknown; return candidate with uncertainty.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-011",
+      "title": "Replacement-freeze tests",
+      "statement": "Do not add tests whose only purpose is to freeze internals during planned replacement; characterize the replacement boundary.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Tests pin each private method before a rewrite.",
+      "negative": "Contract characterization protects migration output compatibility.",
+      "ambiguous": "Replacement boundary is not documented.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    },
+    {
+      "id": "NTT-012",
+      "title": "File-changed test reflex",
+      "statement": "Do not create a test solely because an agent edited a file.",
+      "inputs": [
+        "diff",
+        "AST/test inventory",
+        "obligation evidence"
+      ],
+      "classification": "heuristic",
+      "positive": "Comment change causes a new unit test.",
+      "negative": "File edit changes an unguarded public behavior.",
+      "ambiguous": "Diff mixes docs and behavior and cannot be cleanly classified.",
+      "low": "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-003-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_003_POSITIVE",
+  "summary": "Golden positive outcome for TST-003.",
+  "rationale": "A bug reproduction fails and no existing test covers retry after a failed claim. Rule contract: Add one focused regression guard only when a reproduced failure class is not already reliably detected.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-003-positive"
+  ],
+  "evidence_ids": [
+    "evidence-tst-003-positive"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

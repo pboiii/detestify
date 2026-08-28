@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-012-positive",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_012_POSITIVE",
+  "summary": "Golden positive outcome for NTT-012.",
+  "rationale": "Comment change causes a new unit test. Rule contract: Do not create a test solely because an agent edited a file.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-012-positive"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-012-positive"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-005-ambiguous",
+  "rule_id": "NTT-005",
+  "polarity": "ambiguous",
+  "example": "Only a mock is available for an external dependency; wiring confidence remains limited.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Mock interaction theater",
+      "Only a mock is available for an external dependency; wiring confidence remains limited."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not assert every internal mock call when state, output, or external contract matters.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

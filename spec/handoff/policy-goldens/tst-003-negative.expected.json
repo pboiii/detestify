@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-003-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_003_NEGATIVE",
+  "summary": "Golden negative outcome for TST-003.",
+  "rationale": "An existing focused test already fails on the reproduced bug; fix code without adding a duplicate test. Rule contract: Add one focused regression guard only when a reproduced failure class is not already reliably detected.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-003-negative"
+  ],
+  "evidence_ids": [
+    "evidence-tst-003-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

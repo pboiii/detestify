@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "ntt-011-ambiguous",
+  "rule_id": "NTT-011",
+  "polarity": "ambiguous",
+  "example": "Replacement boundary is not documented.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Replacement-freeze tests",
+      "Replacement boundary is not documented."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Do not add tests whose only purpose is to freeze internals during planned replacement; characterize the replacement boundary.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

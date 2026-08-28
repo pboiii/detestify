@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-chg-008-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_CHG_008_POSITIVE",
+  "summary": "Golden positive outcome for CHG-008.",
+  "rationale": "Lock/ack order changes in queue consumer. Rule contract: Use deterministic invariant evidence plus stress or schedule exploration when practical.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-chg-008-positive"
+  ],
+  "evidence_ids": [
+    "evidence-chg-008-positive"
+  ],
+  "target": {
+    "scope": "integration",
+    "purpose": "resilience",
+    "technique": "property",
+    "cadence": "nightly",
+    "failure_class": "ordering-invariant",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

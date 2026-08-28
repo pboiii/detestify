@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-plc-002-ambiguous",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "low",
+  "reason_code": "GOLDEN_PLC_002_AMBIGUOUS",
+  "summary": "Golden ambiguous outcome for PLC-002.",
+  "rationale": "The repository uses a custom in-memory emulator whose fidelity is undocumented; disclose uncertainty. Rule contract: Reject a lower-level test when the failure requires real wiring, state, or environment.",
+  "remediation": null,
+  "obligation_candidate_ids": [],
+  "evidence_ids": [
+    "evidence-plc-002-ambiguous"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": [
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
+}

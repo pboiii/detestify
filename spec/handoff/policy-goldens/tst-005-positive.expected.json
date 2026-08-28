@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-005-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_005_POSITIVE",
+  "summary": "Golden positive outcome for TST-005.",
+  "rationale": "A JSON response field becomes nullable and a consumer contract exists. Rule contract: Protect consumer/provider contracts, schemas, formats, migrations, and version windows.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-005-positive"
+  ],
+  "evidence_ids": [
+    "evidence-tst-005-positive"
+  ],
+  "target": {
+    "scope": "contract",
+    "purpose": "compatibility",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "contract-regression",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

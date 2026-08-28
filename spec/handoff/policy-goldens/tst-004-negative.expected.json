@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-004-negative",
+  "domain": "change",
+  "outcome": "NO_TEST_SUPPORTED",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_004_NEGATIVE",
+  "summary": "Golden negative outcome for TST-004.",
+  "rationale": "A pure string formatter changes; a database test would add no distinct signal. Rule contract: Place evidence at databases, queues, filesystems, networks, clocks, concurrency, serialization, providers, auth, or deployment boundaries when that is where failure occurs.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-004-negative"
+  ],
+  "evidence_ids": [
+    "evidence-tst-004-negative"
+  ],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

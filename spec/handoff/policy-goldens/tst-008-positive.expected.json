@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-tst-008-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_TST_008_POSITIVE",
+  "summary": "Golden positive outcome for TST-008.",
+  "rationale": "A parser change affects arbitrary escaped strings; recommend round-trip/property evidence. Rule contract: Prefer property, fuzz, metamorphic, combinatorial, or model-based techniques when many inputs share invariant structure.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-tst-008-positive"
+  ],
+  "evidence_ids": [
+    "evidence-tst-008-positive"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "property",
+    "cadence": "pull_request",
+    "failure_class": "input-space-invariant",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

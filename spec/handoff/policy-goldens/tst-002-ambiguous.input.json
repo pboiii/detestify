@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "tst-002-ambiguous",
+  "rule_id": "TST-002",
+  "polarity": "ambiguous",
+  "example": "A function named authorizeTransfer changes but no policy or reachable boundary is known; infer only advisory obligation.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Business or safety invariant",
+      "A function named authorizeTransfer changes but no policy or reachable boundary is known; infer only advisory obligation."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Prioritize authorization, accounting, idempotency, uniqueness, ordering, state transition, and irreversible-action invariants.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

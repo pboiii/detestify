@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "chg-003-ambiguous",
+  "rule_id": "CHG-003",
+  "polarity": "ambiguous",
+  "example": "AST says signatures unchanged but dynamic behavior cannot be established without running tests.",
+  "diff_summary": {
+    "classes": [
+      "mixed"
+    ],
+    "changed_paths": [
+      "src/example.ts"
+    ],
+    "test_paths": [
+      "test/example.test.ts"
+    ],
+    "facts": [
+      "Case for Behavior-preserving structural refactor",
+      "AST says signatures unchanged but dynamic behavior cannot be established without running tests."
+    ]
+  },
+  "repo_shape": {
+    "language": "typescript",
+    "runner": "vitest",
+    "declared_obligations": [],
+    "capabilities": {
+      "ast": "syntactic_only",
+      "coverage": false,
+      "mutation": false
+    }
+  },
+  "expected_constraints": [
+    "Preserve existing behavior tests; substantial test churn is a smell.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
+    "Do not convert low confidence into a gate."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-plc-002-positive",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_PLC_002_POSITIVE",
+  "summary": "Golden positive outcome for PLC-002.",
+  "rationale": "Queue acknowledgement ordering is tested with a faithful queue harness. Rule contract: Reject a lower-level test when the failure requires real wiring, state, or environment.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-plc-002-positive"
+  ],
+  "evidence_ids": [
+    "evidence-plc-002-positive"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

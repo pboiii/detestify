@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-ntt-004-negative",
+  "domain": "change",
+  "outcome": "NEW_TEST_CANDIDATE",
+  "gate_action": "advise",
+  "confidence": "high",
+  "reason_code": "GOLDEN_NTT_004_NEGATIVE",
+  "summary": "Golden negative outcome for NTT-004.",
+  "rationale": "JSON input is validated at runtime against the union contract. Rule contract: Do not repeat compiler or type-system guarantees at runtime unless untyped/serialized input crosses a boundary.",
+  "remediation": null,
+  "obligation_candidate_ids": [
+    "obligation-ntt-004-negative"
+  ],
+  "evidence_ids": [
+    "evidence-ntt-004-negative"
+  ],
+  "target": {
+    "scope": "narrow",
+    "purpose": "functional",
+    "technique": "example",
+    "cadence": "pull_request",
+    "failure_class": "distinct-behavior",
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}
