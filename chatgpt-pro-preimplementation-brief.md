@@ -1,5 +1,7 @@
 # Pre-implementation brief for ChatGPT Pro — Test Steward
 
+> **SUPERSEDED (2026-08-28).** The owner ruling (`test-steward-owner-ruling-and-revised-brief.md`) replaced tasks 1–9 with Packages A–E. Use `chatgpt-pro-execution-brief-v2.md`. Kept for the C1–C13 concern log referenced by the ruling.
+
 **Upload this file together with `test-steward-research-and-implementation-plan.md` (called "the plan" below). Read the entire plan before starting any task.**
 
 ## Your role
