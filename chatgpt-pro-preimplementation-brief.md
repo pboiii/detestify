@@ -26,7 +26,7 @@ Run the tasks in order. One task per message from me is fine; if you can complet
 
 These came from a review of the plan. Task 4 must respond to each one; other tasks should treat them as standing constraints.
 
-- **C1 — Scope.** The plan is a multi-person-year program written as one project: 8 Rust crates, 2 language ecosystems, mutation testing, per-test coverage, a set-cover optimizer, hooks for 2 hosts, and a statistics-grade benchmark harness (12 task families × 4 arms × 2 hosts × 5–10 runs ≈ 480–960 agent runs per evaluation cycle). The biggest unlisted risk in §23 is that v0.1 never ships. A ruthless MVP cut is needed.
+- **C1 — Scope.** (Adversarially reviewed by a four-agent panel; diagnosis confirmed, wording corrected.) v0.1's definition of done spans 8 Rust crates, 2 language ecosystems, mutation adapters, per-test coverage, a greedy cleanup planner, hooks for 2 hosts, Windows packaging, and a statistics-grade benchmark harness (≈400–960 agent runs per full evaluation cycle: 10–12 task families × 4 arms × 2 hosts × 5–10 provisional repetitions, before transformation variants). An independent bottom-up estimate puts this at 2.4–3.8 senior-engineer person-years, or 35–60 calendar weeks even with coding agents doing most implementation. §23's risk table omits schedule/shipping risk entirely. The remedy is NOT an indiscriminate cut: narrow the matrix (one ecosystem, one host wrapper, smoke-tier benchmark, no Windows) while keeping the evidence spine — deterministic engine, seeded-fault oracles, cleanup planner, host-neutral hook schema. Without the spine, v0.1 is a prompt pack, the exact thing §8 argues the product exists to replace.
 - **C2 — Rust choice.** Every evidence source is a Python or JS tool the core will shell out to anyway (pytest, coverage.py, testmon, Vitest, Jest, Stryker). Rust adds tree-sitter AST work that each ecosystem's native tooling gives for free. The hook-latency argument (300 ms budget) may be satisfiable by Go or by a small compiled shim in front of cached state. This decision needs evidence, not preference.
 - **C3 — Stale host-API claims.** The plan asserts specific Claude Code hook semantics (`FileChanged` exact-file matching, `TaskCompleted`, agent hooks experimental, "already continued" stop flag) and Codex hook semantics (stop-continue with reason, prompt/agent handlers parsed but skipped, `.codex-plugin/plugin.json` format). These are exactly the claims that go stale and they gate the whole hook architecture.
 - **C4 — Pseudo-quantitative utility formula.** `risk reduction = likelihood × impact × detection probability × uniqueness × evidence confidence` is not computable by anyone. Without an ordinal rubric with worked examples, the "decision model" collapses into LLM vibes wearing a formula costume.
@@ -38,6 +38,7 @@ These came from a review of the plan. Task 4 must respond to each one; other tas
 - **C10 — Undefined hook I/O contract.** The exact JSON a hook receives and must emit (decision, evidence summary, remediation text, token budget for injected context, loop-guard state) is the contract everything hangs on, and it is currently prose, not schema.
 - **C11 — Windows.** Phase 7 promises Windows, but process-group termination, worktrees, and hook execution on Windows are real work nobody scoped. Either scope it or cut it from v0.1.
 - **C12 — License of borrowed policy language.** The plan wants to reuse lifecycle vocabulary from `levnikolaevich/claude-code-skills` "where license-compatible" — nobody has checked that license.
+- **C13 — Obligation inference may not be identifiable.** The adversarial panel surfaced a risk bigger than schedule: diffs, coverage, mutation evidence, and static structure often cannot establish which product obligation a test uniquely protects. If obligation inference does not work, the decision engine's outputs are untrustworthy no matter how much ships, and repeated policy redesign dominates the schedule. Tasks 4 and 7 must define the fallback behavior when the engine cannot identify the obligation: advisory output with explicit uncertainty, never a confident gate.
 
 ---
 
@@ -98,22 +99,22 @@ Tools: mutmut, cosmic-ray, and any other maintained Python mutation tool; Stryke
 
 ## Task 4 — MVP re-scope and phase plan revision
 
-**Goal:** answer C1, C7, C9, C11 with a concrete v0.1-alpha cut. Use Task 1 and 2 findings.
+**Goal:** answer C1, C7, C9, C11, and C13 with a concrete v0.1-alpha cut. Use Task 1 and 2 findings.
 
 Produce a scope proposal that:
 
-1. Defines the smallest shippable slice that still proves the plan's §24 milestone thesis (correct `NO_TEST`, right test at the right boundary, safe legacy consolidation). Explicitly decide: one language ecosystem first or both; one host first or both; which evidence sources are in (diff classification, test inventory, affected selection) and which are deferred (mutation, kill-matrix set-cover, Codex host, Windows).
+1. Defines the smallest shippable slice that still proves the plan's §24 milestone thesis (correct `NO_TEST`, right test at the right boundary, safe legacy consolidation). Governing rule from the adversarial review: **narrow the matrix, keep the evidence spine.** The deterministic engine, seeded-fault oracles, a cleanup planner, and the host-neutral hook I/O schema stay in v0.1; the matrix items (second ecosystem, second host wrapper, Windows, full statistical harness) are the deferral candidates. Decide the first ecosystem on evidence, not reflex: JS-first is arguable because StrykerJS provides maintained mutation plus per-test coverage in one tool, while Python has the larger pytest audience but shaky mutation tooling (C6) — use Task 2 findings to decide. If the Codex host wrapper is deferred, the hook I/O schema and captured Codex payload fixtures must still ship in v0.1, or the CLI contract calcifies around Claude's Stop semantics. Mutation is demoted to optional evidence, not deleted: seeded-fault replay substitutes as the second independent deletion signal.
 2. Specifies the zero-config on-ramp: exact behavior of a first `plan --diff` run on an unconfigured repo, and what output makes someone keep it (C9).
 3. Restates the plan's Phase 0–7 as a revised phase list with the deferred items moved to a labeled backlog, keeping the plan's definitions-of-done style.
 4. Sets a benchmark budget: a smoke tier (cheap, run per change) vs full tier (run per release), with estimated run counts and an explicit cost cap assumption (C7).
-5. States what "cleanup" means in v0.1 if mutation evidence is deferred: which §11.2 detectors run on AST + coverage + git history alone, and what the two-independent-signal deletion rule looks like without mutation.
+5. States what "cleanup" means in v0.1 if mutation evidence is optional: which §11.2 detectors run on AST + coverage + git history alone, and how the two-independent-signal deletion rule is satisfied without mutation (seeded-fault replay as the substitute signal, per C1). Note §11.5 disqualifies coverage overlap and semantic similarity as sufficient signals on their own — the v0.1 rule must not quietly re-admit them.
 
 **Deliverables**
 - `task4/mvp-scope.md` — the proposal, with a one-page "cut list" table (item, plan section, in/deferred, why).
 - `task4/revised-phases.md` — revised phases with definitions of done.
 - `task4.zip`
 
-**Acceptance:** every concern C1–C12 is either resolved by this proposal or explicitly assigned to a later phase with a reason.
+**Acceptance:** every concern C1–C13 is either resolved by this proposal or explicitly assigned to a later phase with a reason.
 
 ---
 
