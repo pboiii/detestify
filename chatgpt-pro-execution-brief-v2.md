@@ -1,7 +1,17 @@
 # Execution brief v2 — Test Steward specification tree (Packages A–E)
 
 **Supersedes:** `chatgpt-pro-preimplementation-brief.md` (v1, tasks 1–9). Do not execute the v1 tasks.
-**Upload together with:** `test-steward-research-and-implementation-plan.md` (the plan) and `test-steward-owner-ruling-and-revised-brief.md` (the ruling). **The ruling is authoritative wherever it and the plan disagree.** Read both in full before starting.
+**Upload together with:** `test-steward-research-and-implementation-plan.md` (the plan) and `test-steward-owner-ruling-and-revised-brief.md` (the ruling). **Authority order: the owner amendments below > the ruling > the plan.** Read all of both documents before starting.
+
+## Owner amendments (2026-08-28, after the ruling)
+
+The owner has amended three ruled decisions. Where these conflict with ruling §4.2, §8.2, or §11, the amendments win:
+
+1. **No separate ChatGPT surface.** The ChatGPT desktop app has merged with the Codex desktop app, so ChatGPT users are reached through Codex. Drop every ChatGPT-specific deliverable and all "advisory-only ChatGPT path" framing (plan §9.4 is obsolete). The skill stays provider-neutral.
+2. **Codex is a v1 certified host, not deferred.** Codex supports hooks; ship a live Codex command-hook wrapper and skill packaging in the alpha, parallel to Claude's. Captured payload fixtures remain as compatibility test data, but they are no longer the whole Codex story.
+3. **Efficacy testing covers and compares both hosts.** The agent canary and the alpha definition of done run on both Claude and Codex and report per-host results side by side. Ruling §11 DoD #4 gains a Codex twin ("the Codex stop adapter can request one bounded continuation and then exit without a loop") and DoD #9 becomes per-host: no hidden-fault regression and reduced unnecessary test creation/churn vs baseline on at least 3 of 4 tasks **on each host**. Canary caps become per-host: ≤24 runs, ≤12 wall-clock hours, ≤$250 per host per candidate release (≤$500 total) — flag in `spec/conflicts.md` if evidence suggests different caps.
+
+Package A must verify the current Codex desktop/ChatGPT-app merge status and Codex hook capabilities against current official documentation with `VERIFIED`/`CHANGED`/`UNVERIFIED` labels; if reality differs from these amendments' premises, log the conflict — do not silently proceed on a broken premise.
 
 ## Your job
 
@@ -9,7 +19,7 @@ You are the planner, architect, and scaffolder. A separate local coding agent (C
 
 ## Ground rules
 
-1. **The ruling decides; you elaborate.** Where the ruling has made a call (TypeScript default, JS/TS ecosystem, Claude-only certified host, four fixtures, six alpha commands, gate-eligibility table, hook envelope, cleanup evidence rule, benchmark caps), do not relitigate it — implement it in detail. If you find a genuine defect in a ruled decision, keep the decision, and record the objection in `spec/conflicts.md` with evidence.
+1. **The ruling decides; you elaborate.** Where the ruling has made a call (TypeScript default, JS/TS ecosystem, dual certified hosts per the owner amendments, four fixtures, six alpha commands, gate-eligibility table, hook envelope, cleanup evidence rule, benchmark caps), do not relitigate it — implement it in detail. If you find a genuine defect in a ruled decision, keep the decision, and record the objection in `spec/conflicts.md` with evidence.
 2. **Two label vocabularies** (per ruling §10): external facts get `VERIFIED` / `CHANGED` / `UNVERIFIED` with a source URL and access date; normative decisions get `DECIDED` / `OPEN` / `DEFERRED`. Never mix them.
 3. **One spec tree, cumulative archive.** Author files at the exact paths below. At the end of each package, deliver the full updated tree as a single downloadable `spec-tree.zip` (replacing the previous one). No per-task archives.
 4. **Validate before delivering:** every JSON Schema passes draft-2020-12 metaschema validation; every example validates against its schema; every YAML parses. Include the validation run output in `spec/validation-log.md`. Any authoring tool is fine; validity is what matters.
@@ -25,7 +35,7 @@ Pre-verified for you (2026-08-28, all six ruling §13 citations checked live): `
 ## Package A — Volatile interfaces and reuse verification
 
 **Files**
-- `spec/compat/hooks-matrix.md` — Claude Code and Codex hook compatibility matrix: for each lifecycle event, current name, input payload shape, output contract, blocking semantics, stability label (stable/experimental/absent), source URL + access date. Include Claude's `TaskCompleted`, literal-filename `FileChanged`, `stop_hook_active`, and agent-hook status; Codex's command/MCP handlers, parsed-but-skipped prompt/agent handlers, and Stop-continuation semantics. Every row `VERIFIED`/`CHANGED`/`UNVERIFIED`.
+- `spec/compat/hooks-matrix.md` — Claude Code and Codex hook compatibility matrix: for each lifecycle event, current name, input payload shape, output contract, blocking semantics, stability label (stable/experimental/absent), source URL + access date. Include Claude's `TaskCompleted`, literal-filename `FileChanged`, `stop_hook_active`, and agent-hook status; Codex's command/MCP handlers, parsed-but-skipped prompt/agent handlers, and Stop-continuation semantics. Codex research is certification-grade — it must support a live v1 wrapper (per the owner amendments), so cover install/trust/config paths and the desktop-app (merged ChatGPT/Codex) hook story, not just payload shapes. Every row `VERIFIED`/`CHANGED`/`UNVERIFIED`.
 - `spec/compat/event-mapping.md` — mapping from each host event to the ruling's normalized event enum (§6.2: `session_start|before_tool|after_tool|task_complete|subagent_stop|turn_stop|session_end`), including which host events have no normalized equivalent and are deliberately dropped.
 - `spec/compat/tool-dossier.md` — focused dossiers: StrykerJS (per-test coverage analysis, incremental mode, targeted mutation ranges, report formats, license), Vitest, Jest (discovery, coverage output formats, programmatic APIs, affected-test features, licenses), the candidate TypeScript AST stack (TypeScript compiler API vs ts-morph vs Babel — recommend one, `DECIDED`), and any skill/prose sources actually reused (license from the LICENSE file itself).
 - `spec/compat/python-mutation-appendix.md` — one page: mutmut 3.7.0 and cosmic-ray 8.7.0 output contracts and suitability open questions, for the deferred Python ecosystem. No integration design.
@@ -68,7 +78,7 @@ Pre-verified for you (2026-08-28, all six ruling §13 citations checked live): `
 - `spec/benchmark/seeded-fault-rules.md` — fault design rules (non-equivalent, mechanism-mapped, hidden).
 - `spec/benchmark/metrics.md` — definitions for the alpha DoD #9 metrics: hidden-fault regression, unnecessary test creation, churn vs baseline.
 - `spec/benchmark/pr-suite.md` — the deterministic per-PR suite (schema validation, policy goldens, four fixture CLI runs, hook normalization tests, cleanup safety counterexamples); zero paid agent runs.
-- `spec/benchmark/canary-manifest.yaml` — nightly/RC canary per ruling §8.2 caps: 4 tasks, baseline + full arms, ≤3 reps, ≤24 runs, ≤12 h, ≤$250 per candidate.
+- `spec/benchmark/canary-manifest.yaml` — nightly/RC canary per ruling §8.2 as amended: **both hosts** (Claude and Codex), 4 tasks, baseline + full arms, ≤3 reps; caps per host: ≤24 runs, ≤12 h, ≤$250 (≤$500 total). Results report per-host and include a Claude-vs-Codex comparison of the same metrics (hidden-fault detection, unnecessary test creation, churn, block false positives, overhead).
 
 **Acceptance:** YAML parses; every task has a hidden oracle and expected-decision spec; the canary manifest encodes all four caps.
 
@@ -78,7 +88,8 @@ Pre-verified for you (2026-08-28, all six ruling §13 citations checked live): `
 - `spec/skill/SKILL.md` — provider-neutral, <500 lines, consumes the CLI contract (invokes commands, reads report JSON) rather than restating policy in prose; explicit rejections list from plan §14; conforms to the Agent Skills format verified in Package A.
 - `spec/skill/references-outline.md` — outline + key content per linked reference file.
 - `spec/hosts/claude-hook-package.md` — Claude command-hook package spec: hooks.json content, events used, adapter mapping to the normalized envelope, bounded one-shot remediation flow honoring `stop_hook_active`, install/trust/uninstall.
-- `spec/hosts/codex-fixtures.md` + `spec/hosts/codex-fixtures/*.json` — captured/representative Codex payloads for every normalized event, each normalizing into the §6.2 envelope; this is the alpha's Codex compatibility artifact (no live wrapper).
+- `spec/hosts/codex-hook-package.md` — Codex command-hook package spec, parallel in structure to Claude's (per the owner amendments this is a live v1 wrapper): hook/manifest configuration, events used, adapter mapping to the normalized envelope, bounded one-shot remediation via Codex's stop-continuation-with-reason mechanism, subagent-stop handling, install/trust/uninstall, and any packaging differences for the merged Codex desktop app.
+- `spec/hosts/codex-fixtures.md` + `spec/hosts/codex-fixtures/*.json` — captured/representative Codex payloads for every normalized event, each normalizing into the §6.2 envelope; compatibility test data for the wrapper.
 - `spec/threat-model.md` — full model from the Package B outline, each threat mapped to a mitigation in the specs.
 - `spec/quickstart.md` — the adoption path: `npx` zero-config first run, what the user sees, how trust is granted for anything beyond read-only.
 
@@ -90,7 +101,7 @@ You are the planner; a separate local coding agent (Claude Code) implements. Thi
 
 **Files**
 - `spec/handoff/IMPLEMENTATION_BRIEF.md` — a self-contained prompt for the implementation agent: goal (ruling §12 vertical slice), authoritative document order (ruling > spec tree > plan), the ruling §4.4 must-not list, per-milestone definitions of done, and the exact verification commands to run at each gate. Written so the agent needs no other context than the repo.
-- `spec/handoff/milestones.md` — the §12 slice decomposed into PR-sized milestones (suggested: CLI skeleton + `doctor`; diff/repo discovery; classifier; `plan --diff` report; fixture repos + PR suite; Stop adapter + remediation loop; `inventory`/`audit`/`cleanup-plan`), each with entry criteria, acceptance checks tied to the schemas and fixtures, and which ADR governs it. Include where the TypeScript overturn thresholds (ADR-002) are measured.
+- `spec/handoff/milestones.md` — the §12 slice decomposed into PR-sized milestones (suggested: CLI skeleton + `doctor`; diff/repo discovery; classifier; `plan --diff` report; fixture repos + PR suite; Claude Stop adapter + remediation loop; Codex adapter + remediation loop; `inventory`/`audit`/`cleanup-plan`; dual-host canary), each with entry criteria, acceptance checks tied to the schemas and fixtures, and which ADR governs it. Include where the TypeScript overturn thresholds (ADR-002) are measured.
 - `spec/handoff/fixtures/task-01/ … task-04/` — full file-by-file content listings for the four fixture repositories (they are small JS/TS repos — author every file's content as text, including the deliberately redundant, protected, and duplicate tests in task-04, plus the hidden-oracle files kept in a clearly separated `oracle/` subtree per the Package D protocol). The implementation agent materializes these verbatim.
 - `spec/handoff/policy-goldens/` — the golden cases for the deterministic PR suite: input (diff summary + repo shape) → expected decision JSON pairs, one per policy rule's positive/negative/ambiguous example from `spec/policy/rules.md`, each validating against `decision.schema.json`.
 - `spec/handoff/scaffold.md` — proposed repo layout for the TypeScript CLI (directory tree, package.json shape, tsconfig choices, dependency shortlist with license and one-line justification each, test-runner choice for the tool's own suite). Layout and dependency decisions only — no source code.
