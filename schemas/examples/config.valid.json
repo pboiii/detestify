@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "mode": "advisory",
+  "base_revision": null,
+  "trusted_operations": {
+    "run_repository_commands": false,
+    "evaluate_repository_config": false,
+    "install_dependencies": false,
+    "network_access": false,
+    "mutation": false,
+    "create_hooks": false
+  },
+  "protected_tests": [
+    {
+      "id": "protect-webhook-contract",
+      "path": "test/webhook.contract.test.ts",
+      "reason": "Guards externally reachable signature and retry behavior.",
+      "obligation_ids": ["webhook.authenticity", "webhook.retry-idempotency"],
+      "source": ".test-steward/protected-tests.json"
+    }
+  ],
+  "declared_obligations": [
+    {
+      "id": "webhook.retry-idempotency",
+      "statement": "A failed first processing attempt can be retried without being classified as a completed duplicate.",
+      "source": "docs/contracts/webhook.md",
+      "gate_policy": "balanced"
+    }
+  ],
+  "critical_paths": [
+    {
+      "pattern": "src/webhook/**",
+      "obligation_ids": ["webhook.retry-idempotency"],
+      "materiality_floor": "T3"
+    }
+  ],
+  "framework_overrides": {
+    "runner": "auto",
+    "config_paths": []
+  },
+  "hook_limits": {
+    "model_visible_bytes": 6000,
+    "remediation_characters": 1500,
+    "max_continuations": 1
+  },
+  "policy": {
+    "elevated_rule_ids": ["CHG-006"],
+    "allow_delete_candidates": true
+  }
+}

@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://test-steward.dev/schemas/config.schema.json",
+  "title": "Test Steward configuration",
+  "description": "Configuration for the six-command Test Steward alpha. Repository configuration is untrusted until explicitly approved.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "trusted_operations",
+    "protected_tests",
+    "declared_obligations",
+    "critical_paths",
+    "framework_overrides",
+    "hook_limits",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Configuration schema version.",
+      "const": "1.0"
+    },
+    "mode": {
+      "description": "Policy enforcement mode. Advisory is the public default.",
+      "enum": ["advisory", "balanced", "strict"]
+    },
+    "base_revision": {
+      "description": "Optional Git base revision. Null requests automatic merge-base discovery.",
+      "type": ["string", "null"]
+    },
+    "trusted_operations": {
+      "description": "Explicit trust grants for operations that can execute repository code, mutate files, or use the network.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_repository_commands",
+        "evaluate_repository_config",
+        "install_dependencies",
+        "network_access",
+        "mutation",
+        "create_hooks"
+      ],
+      "properties": {
+        "run_repository_commands": {
+          "description": "Whether Test Steward may execute repository-defined commands.",
+          "type": "boolean"
+        },
+        "evaluate_repository_config": {
+          "description": "Whether Test Steward may load executable test-runner or build configuration.",
+          "type": "boolean"
+        },
+        "install_dependencies": {
+          "description": "Whether Test Steward may install dependencies. Alpha defaults to false.",
+          "type": "boolean"
+        },
+        "network_access": {
+          "description": "Whether Test Steward may make outbound network requests. Alpha defaults to false.",
+          "type": "boolean"
+        },
+        "mutation": {
+          "description": "Whether optional mutation evidence may run.",
+          "type": "boolean"
+        },
+        "create_hooks": {
+          "description": "Whether Test Steward may write host hook configuration.",
+          "type": "boolean"
+        }
+      }
+    },
+    "protected_tests": {
+      "description": "Tests that cleanup must retain unless a separately approved replacement record exists.",
+      "type": "array",
+      "items": {
+        "description": "A durable protected-test record.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "path", "reason", "obligation_ids", "source"],
+        "properties": {
+          "id": {
+            "description": "Stable protected-test record identifier.",
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "description": "Repository-relative test path.",
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "description": "Human-maintained reason this test is protected.",
+            "type": "string",
+            "minLength": 1
+          },
+          "obligation_ids": {
+            "description": "Stable obligation identifiers protected by the test.",
+            "type": "array",
+            "items": {
+              "description": "Obligation identifier.",
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "source": {
+            "description": "Repository policy, incident, contract, or approval record that established protection.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "declared_obligations": {
+      "description": "Repository-declared obligations that can be referenced by obligation candidates.",
+      "type": "array",
+      "items": {
+        "description": "A concise declared obligation record.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement", "source", "gate_policy"],
+        "properties": {
+          "id": {
+            "description": "Stable obligation identifier.",
+            "type": "string",
+            "minLength": 1
+          },
+          "statement": {
+            "description": "Observable behavior or invariant the repository owns.",
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "description": "Repository-relative policy, schema, contract, or issue reference.",
+            "type": "string",
+            "minLength": 1
+          },
+          "gate_policy": {
+            "description": "Whether repository policy elevates the obligation above advisory behavior.",
+            "enum": ["advisory", "balanced", "strict"]
+          }
+        }
+      }
+    },
+    "critical_paths": {
+      "description": "Repository paths with explicit obligation or materiality metadata.",
+      "type": "array",
+      "items": {
+        "description": "A critical path mapping.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "obligation_ids", "materiality_floor"],
+        "properties": {
+          "pattern": {
+            "description": "Repository-relative glob interpreted by the implementation without shell expansion.",
+            "type": "string",
+            "minLength": 1
+          },
+          "obligation_ids": {
+            "description": "Obligations associated with matching paths.",
+            "type": "array",
+            "items": {
+              "description": "Obligation identifier.",
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "materiality_floor": {
+            "description": "Minimum materiality tier for matching changes.",
+            "enum": ["T0", "T1", "T2", "T3", "T4"]
+          }
+        }
+      }
+    },
+    "framework_overrides": {
+      "description": "Optional non-executable framework discovery overrides.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runner", "config_paths"],
+      "properties": {
+        "runner": {
+          "description": "Explicit supported runner or automatic detection.",
+          "enum": ["auto", "vitest", "jest", "unknown"]
+        },
+        "config_paths": {
+          "description": "Repository-relative configuration paths to inspect only after trust rules permit.",
+          "type": "array",
+          "items": {
+            "description": "Configuration path.",
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "hook_limits": {
+      "description": "Portable limits applied before translating output into a host-specific shape.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_visible_bytes",
+        "remediation_characters",
+        "max_continuations"
+      ],
+      "properties": {
+        "model_visible_bytes": {
+          "description": "Maximum UTF-8 bytes visible to the model from one hook result.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6000,
+          "default": 6000
+        },
+        "remediation_characters": {
+          "description": "Maximum Unicode characters in remediation text.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1500,
+          "default": 1500
+        },
+        "max_continuations": {
+          "description": "Maximum host continuations after an initial stop. Alpha requires one.",
+          "const": 1
+        }
+      }
+    },
+    "policy": {
+      "description": "Repository policy overrides that remain subject to provenance and safety invariants.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elevated_rule_ids", "allow_delete_candidates"],
+      "properties": {
+        "elevated_rule_ids": {
+          "description": "Derived rule identifiers explicitly elevated for balanced or strict gating.",
+          "type": "array",
+          "items": {
+            "description": "Rule identifier.",
+            "type": "string",
+            "pattern": "^[A-Z]{3}-[0-9]{3}$"
+          },
+          "uniqueItems": true
+        },
+        "allow_delete_candidates": {
+          "description": "Whether cleanup may emit DELETE_CANDIDATE when all evidence requirements hold. This never authorizes deletion.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

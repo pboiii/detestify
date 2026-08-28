@@ -1,0 +1,16 @@
+Runtime dependencies:
+- ajv 8.20.0 — MIT
+- commander 14.0.2 — MIT
+- ts-morph 27.0.2 — MIT
+- typescript 5.9.3 — Apache-2.0
+- yaml 2.9.0 — ISC
+
+Development dependencies:
+- @types/node 22.18.1 — MIT
+- eslint 10.2.1 — MIT
+- prettier 3.6.2 — MIT
+- tsx 4.20.5 — MIT
+- vitest 3.2.7 — MIT
+
+Transitive package notices and license texts are recorded in package-lock.json
+and the installed package LICENSE files. A release SBOM is deferred to M9.

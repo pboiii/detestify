@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "id": "obl-webhook-retry",
+  "title": "Webhook retry remains processable",
+  "statement": "If processing fails after a valid claim, a later retry is eligible to process once.",
+  "provenance": "derived",
+  "source_refs": ["ev-diff-webhook", "docs/contracts/webhook.md"],
+  "materiality": {
+    "consequence": "irreversible",
+    "exposure": "cross_system",
+    "change_mechanism": "stateful_or_irreversible",
+    "evidence_gap": "material",
+    "confidence": "derived",
+    "tier": "T3"
+  },
+  "gate_eligible": true,
+  "rationale": "The diff changes claim lifecycle at a persisted integration boundary and repository policy elevates CHG-006.",
+  "limitations": [
+    "The zero-config run has not executed the repository contract test."
+  ]
+}

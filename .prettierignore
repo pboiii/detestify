@@ -1,0 +1,6 @@
+dist
+node_modules
+spec
+planning
+archive
+package-lock.json

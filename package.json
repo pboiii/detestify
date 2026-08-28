@@ -1,0 +1,62 @@
+{
+  "name": "test-steward",
+  "version": "0.0.0-alpha.0",
+  "description": "Evidence-backed test portfolio policy CLI for coding agents",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "bin": {
+    "test-steward": "./dist/bin/test-steward.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/bin",
+    "dist/src",
+    "dist/schemas",
+    "plugins",
+    "skills",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_LICENSES"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "npm run build --silent && eslint dist/src dist/bin scripts/*.mjs eslint.config.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate:spec": "tsx scripts/validate-spec.ts",
+    "test": "vitest run",
+    "test:schemas": "vitest run test/unit/schemas.test.ts",
+    "test:unit": "vitest run test/unit",
+    "test:policy-goldens": "vitest run test/policy-goldens --passWithNoTests",
+    "test:fixture-cli": "vitest run test/integration --passWithNoTests",
+    "test:hook-normalization": "vitest run test/unit --passWithNoTests",
+    "test:hook-contracts": "vitest run test/hook-contracts --passWithNoTests",
+    "test:cleanup-safety": "vitest run test/unit --passWithNoTests",
+    "test:security": "vitest run test/security --passWithNoTests",
+    "test:pr": "npm run typecheck && npm run lint && npm run format:check && npm run validate:spec && npm run test:schemas && npm run test:unit",
+    "benchmark:canary": "tsx scripts/run-canary.ts"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "commander": "14.0.2",
+    "ts-morph": "27.0.2",
+    "typescript": "5.9.3",
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.1",
+    "prettier": "3.6.2",
+    "tsx": "4.20.5",
+    "vitest": "3.2.7",
+    "eslint": "10.2.1"
+  }
+}

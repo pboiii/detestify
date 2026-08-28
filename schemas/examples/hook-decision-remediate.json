@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "action": "request_remediation",
+  "confidence": "high",
+  "reason_code": "MATERIAL_BOUNDARY_EVIDENCE_GAP",
+  "summary": "The persisted claim lifecycle changed without a boundary-level retry guard.",
+  "remediation": "Add or update one focused integration test that fails the first processing attempt, retries the same event, and proves exactly one eventual side effect. Run verify-change and re-check the report.",
+  "report_path": ".test-steward/reports/stop-001.json",
+  "limitations": ["Mutation evidence was not requested."],
+  "loop_guard": {
+    "next_attempt": 1,
+    "max_attempts": 2
+  }
+}

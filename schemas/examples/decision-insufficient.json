@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "id": "dec-unknown-generated",
+  "domain": "change",
+  "outcome": "INSUFFICIENT_EVIDENCE",
+  "gate_action": "advise",
+  "confidence": "unknown",
+  "reason_code": "GENERATED_PROVENANCE_UNKNOWN",
+  "summary": "Generated artifact changed without generator provenance.",
+  "rationale": "The engine cannot establish whether behavior, contract, or only formatting changed without a generator/source mapping.",
+  "remediation": null,
+  "obligation_candidate_ids": ["obl-generated-unknown"],
+  "evidence_ids": ["ev-generated-diff"],
+  "target": {
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": "completion",
+    "failure_class": null,
+    "test_path": null
+  },
+  "cleanup_requirements": null,
+  "limitations": ["Generator source and reproducible command are unavailable."]
+}

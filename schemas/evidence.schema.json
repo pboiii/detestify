@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://test-steward.dev/schemas/evidence.schema.json",
+  "title": "Evidence record",
+  "description": "A typed fact, execution result, or limitation used by Test Steward.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "status",
+    "source",
+    "findings",
+    "data",
+    "gate_trust",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Evidence schema version.",
+      "const": "1.0"
+    },
+    "id": {
+      "description": "Stable report-local evidence identifier.",
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "description": "Evidence category.",
+      "enum": [
+        "git_diff",
+        "ast_fact",
+        "declared_policy",
+        "failing_test",
+        "historical_fault",
+        "contract",
+        "runner_inventory",
+        "coverage",
+        "mutation",
+        "runtime",
+        "flake",
+        "counterfactual",
+        "semantic_inference",
+        "user_context",
+        "capability"
+      ]
+    },
+    "status": {
+      "description": "Availability and completeness status.",
+      "enum": ["observed", "available", "unavailable", "failed", "partial"]
+    },
+    "source": {
+      "description": "Origin and reproducibility metadata.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "version",
+        "path",
+        "command_fingerprint",
+        "observed_at"
+      ],
+      "properties": {
+        "tool": {
+          "description": "Tool or subsystem that produced the evidence.",
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "description": "Tool version, or null when not applicable.",
+          "type": ["string", "null"]
+        },
+        "path": {
+          "description": "Repository-relative or report-relative source path, or null.",
+          "type": ["string", "null"]
+        },
+        "command_fingerprint": {
+          "description": "Hash or stable identifier for the command configuration, not raw secrets.",
+          "type": ["string", "null"]
+        },
+        "observed_at": {
+          "description": "RFC 3339 time when the evidence was observed.",
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "findings": {
+      "description": "Structured findings derived directly from the source.",
+      "type": "array",
+      "items": {
+        "description": "One evidence finding.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "summary", "paths"],
+        "properties": {
+          "code": {
+            "description": "Stable finding code.",
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{2,80}$"
+          },
+          "summary": {
+            "description": "Concise factual finding.",
+            "type": "string",
+            "minLength": 1
+          },
+          "paths": {
+            "description": "Repository-relative paths relevant to the finding.",
+            "type": "array",
+            "items": {
+              "description": "Repository-relative path.",
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "data": {
+      "description": "Kind-specific structured data. Consumers must tolerate fields they do not understand only after schema-version negotiation.",
+      "type": "object"
+    },
+    "gate_trust": {
+      "description": "Whether this evidence may participate in a gate under ADR-004.",
+      "enum": ["eligible", "advisory_only", "not_evidence"]
+    },
+    "limitations": {
+      "description": "Mandatory limitations and missing context. An empty array means no known limitation for the stated finding, not universal completeness.",
+      "type": "array",
+      "items": {
+        "description": "A specific limitation.",
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://test-steward.dev/schemas/decision.schema.json",
+  "title": "Test Steward decision",
+  "description": "An explainable change-planning or cleanup-candidate decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "domain",
+    "outcome",
+    "gate_action",
+    "confidence",
+    "reason_code",
+    "summary",
+    "rationale",
+    "remediation",
+    "obligation_candidate_ids",
+    "evidence_ids",
+    "target",
+    "cleanup_requirements",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Decision schema version.",
+      "const": "1.0"
+    },
+    "id": {
+      "description": "Stable report-local decision identifier.",
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "description": "Whether this decision concerns a current change or a legacy cleanup candidate.",
+      "enum": ["change", "cleanup"]
+    },
+    "outcome": {
+      "description": "Allowed alpha outcome for the selected domain.",
+      "enum": [
+        "NO_TEST_SUPPORTED",
+        "EXISTING_TEST_UPDATE_CANDIDATE",
+        "NEW_TEST_CANDIDATE",
+        "INSUFFICIENT_EVIDENCE",
+        "KEEP",
+        "MERGE_CANDIDATE",
+        "DELETE_CANDIDATE",
+        "MOVE_CANDIDATE"
+      ]
+    },
+    "gate_action": {
+      "description": "Portable action that a direct caller or hook adapter may apply.",
+      "enum": ["allow", "advise", "request_remediation", "deny_tool"]
+    },
+    "confidence": {
+      "description": "Confidence in the stated decision, not a probability.",
+      "enum": ["high", "medium", "low", "unknown"]
+    },
+    "reason_code": {
+      "description": "Stable machine-readable reason code.",
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,80}$"
+    },
+    "summary": {
+      "description": "Concise human-readable decision summary.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "rationale": {
+      "description": "Evidence-grounded explanation of the decision and alternatives.",
+      "type": "string",
+      "minLength": 1
+    },
+    "remediation": {
+      "description": "Bounded actionable instruction when remediation is requested, otherwise null.",
+      "type": ["string", "null"],
+      "maxLength": 1500
+    },
+    "obligation_candidate_ids": {
+      "description": "Referenced obligation candidates.",
+      "type": "array",
+      "items": {
+        "description": "Obligation candidate identifier.",
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "evidence_ids": {
+      "description": "Referenced evidence records.",
+      "type": "array",
+      "items": {
+        "description": "Evidence identifier.",
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "target": {
+      "description": "Recommended test or verification placement. Fields may be null when no persistent test is supported.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "purpose",
+        "technique",
+        "cadence",
+        "failure_class",
+        "test_path"
+      ],
+      "properties": {
+        "scope": {
+          "description": "Cheapest scope that can trigger and observe the failure, or null.",
+          "enum": [
+            "static",
+            "narrow",
+            "component",
+            "integration",
+            "contract",
+            "system",
+            "production",
+            null
+          ]
+        },
+        "purpose": {
+          "description": "Primary purpose of the evidence, or null.",
+          "enum": [
+            "functional",
+            "regression",
+            "acceptance",
+            "smoke",
+            "security",
+            "performance",
+            "resilience",
+            "accessibility",
+            "compatibility",
+            "migration",
+            "recovery",
+            "compliance",
+            null
+          ]
+        },
+        "technique": {
+          "description": "Primary test or verification technique, or null.",
+          "enum": [
+            "example",
+            "parameterized",
+            "property",
+            "fuzz",
+            "metamorphic",
+            "combinatorial",
+            "model_based",
+            "differential",
+            "snapshot",
+            "mutation",
+            "static_analysis",
+            "existing_evidence",
+            null
+          ]
+        },
+        "cadence": {
+          "description": "Recommended execution cadence, or null.",
+          "enum": [
+            "per_edit",
+            "completion",
+            "pull_request",
+            "nightly",
+            "release",
+            "production",
+            null
+          ]
+        },
+        "failure_class": {
+          "description": "Named distinct failure mechanism, or null when no persistent test is proposed.",
+          "type": ["string", "null"]
+        },
+        "test_path": {
+          "description": "Proposed or existing repository-relative test path, or null.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "cleanup_requirements": {
+      "description": "Evidence requirements relevant to cleanup decisions. Null for ordinary change decisions.",
+      "type": ["object", "null"],
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "structural_signal_ids",
+            "independent_signal_ids",
+            "protected_check_passed",
+            "human_approval_required"
+          ],
+          "properties": {
+            "structural_signal_ids": {
+              "description": "Structural redundancy evidence identifiers.",
+              "type": "array",
+              "items": {
+                "description": "Evidence identifier.",
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "independent_signal_ids": {
+              "description": "Behavioral or historical evidence identifiers independent of the structural signal.",
+              "type": "array",
+              "items": {
+                "description": "Evidence identifier.",
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "protected_check_passed": {
+              "description": "Whether no declared protected obligation blocks the candidate.",
+              "type": "boolean"
+            },
+            "human_approval_required": {
+              "description": "Whether a human must approve any destructive action. Alpha requires true for delete candidates.",
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "limitations": {
+      "description": "Specific missing evidence and unsupported analysis.",
+      "type": "array",
+      "items": {
+        "description": "A limitation.",
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "domain": {
+            "const": "change",
+            "description": "Conditional selector for domain."
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "enum": [
+              "NO_TEST_SUPPORTED",
+              "EXISTING_TEST_UPDATE_CANDIDATE",
+              "NEW_TEST_CANDIDATE",
+              "INSUFFICIENT_EVIDENCE"
+            ],
+            "description": "Conditional constraint for outcome."
+          },
+          "cleanup_requirements": {
+            "type": "null",
+            "description": "Conditional constraint for cleanup_requirements."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "domain": {
+            "const": "cleanup",
+            "description": "Conditional selector for domain."
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "enum": [
+              "KEEP",
+              "MERGE_CANDIDATE",
+              "DELETE_CANDIDATE",
+              "MOVE_CANDIDATE",
+              "INSUFFICIENT_EVIDENCE"
+            ],
+            "description": "Conditional constraint for outcome."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gate_action": {
+            "const": "request_remediation",
+            "description": "Conditional selector for gate_action."
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "remediation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conditional constraint for remediation."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "DELETE_CANDIDATE",
+            "description": "Conditional selector for outcome."
+          }
+        }
+      },
+      "then": {
+        "required": ["cleanup_requirements"],
+        "properties": {
+          "cleanup_requirements": {
+            "type": "object",
+            "properties": {
+              "structural_signal_ids": {
+                "minItems": 1,
+                "description": "Conditional constraint for structural_signal_ids."
+              },
+              "independent_signal_ids": {
+                "minItems": 1,
+                "description": "Conditional constraint for independent_signal_ids."
+              },
+              "protected_check_passed": {
+                "const": true,
+                "description": "Conditional constraint for protected_check_passed."
+              },
+              "human_approval_required": {
+                "const": true,
+                "description": "Conditional constraint for human_approval_required."
+              }
+            },
+            "description": "Conditional constraint for cleanup_requirements."
+          }
+        }
+      }
+    }
+  ]
+}

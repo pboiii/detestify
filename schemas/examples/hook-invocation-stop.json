@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "host": "codex",
+  "host_version": "0.170.0",
+  "event": "turn_stop",
+  "session_id": "session-1",
+  "turn_id": "turn-7",
+  "cwd": "/tmp/test-steward/task-03",
+  "repo_root": "/tmp/test-steward/task-03",
+  "tool": {
+    "name": null,
+    "input_ref": null,
+    "result_ref": null
+  },
+  "loop_guard": {
+    "already_remediated": false,
+    "attempt": 0
+  },
+  "raw_payload_ref": "raw/codex/stop-001.json"
+}

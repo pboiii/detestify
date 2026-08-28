@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "cleanup-001",
+  "generated_at": "2026-08-28T15:10:00Z",
+  "repository": {
+    "root": "/tmp/test-steward/task-04",
+    "revision": "c0ffee",
+    "diff_fingerprint": "sha256:clean"
+  },
+  "candidates": [
+    {
+      "id": "cand-exact-duplicate",
+      "test_paths": ["test/math.duplicate.test.ts", "test/math.test.ts"],
+      "action": "DELETE_CANDIDATE",
+      "obligation_ids": ["math.addition"],
+      "structural_signals": ["ev-byte-identical", "ev-ast-identical"],
+      "independent_signals": ["ev-worktree-counterfactual"],
+      "protected_checks": [
+        {
+          "source": ".test-steward/protected-tests.json",
+          "passed": true,
+          "detail": "Neither duplicate path is protected and the retained test owns the declared obligation."
+        }
+      ],
+      "counterfactual": {
+        "status": "passed",
+        "commands_ref": "run:counterfactual-001",
+        "preserved_obligations": ["math.addition"],
+        "limitations": [
+          "Only the fixture acceptance and selected suite were run."
+        ]
+      },
+      "worktree_validation": {
+        "status": "passed",
+        "worktree_ref": "worktree:cleanup-001",
+        "revision": "c0ffee",
+        "cleanup_complete": true
+      },
+      "human_approval": {
+        "required": true,
+        "status": "pending",
+        "approver_ref": null
+      },
+      "rationale": "One test is byte- and AST-identical to a retained unprotected test, and isolated removal preserves the executable fixture obligation.",
+      "limitations": [
+        "This is a candidate only; alpha does not apply deletion."
+      ]
+    }
+  ],
+  "limitations": ["Mutation evidence was unavailable and not required."]
+}
