@@ -1,0 +1,4 @@
+{
+  "name": "test-steward",
+  "hooks": "./hooks/hooks.json"
+}

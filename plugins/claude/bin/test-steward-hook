@@ -1,0 +1,26 @@
+#!/bin/sh
+# Test Steward Claude hook launcher: thin shim into the installed CLI
+# distribution. Reads the raw event from stdin, forwards argv verbatim.
+# Resolves the installed package without evaluating repository config.
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+
+ENTRY=""
+for candidate in \
+  "${TEST_STEWARD_HOOK_ENTRY:-}" \
+  "$PLUGIN_ROOT/../../dist/src/hooks/entry.js" \
+  "$PLUGIN_ROOT/../../../dist/src/hooks/entry.js"; do
+  if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+    ENTRY=$candidate
+    break
+  fi
+done
+
+if [ -z "$ENTRY" ]; then
+  echo "test-steward-hook: installed hook entry not found" >&2
+  exit 0
+fi
+
+exec node "$ENTRY" "$@"
