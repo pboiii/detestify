@@ -5,6 +5,7 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { realpathContained } from "../repository/paths.js";
 import {
   Node,
   Project,
@@ -17,6 +18,22 @@ import {
   type MethodDeclaration,
   type SourceFile,
 } from "ts-morph";
+
+/**
+ * Read a changed/inventoried repository file after symlink containment
+ * (TM-002/TM-005). Changed paths come from Git and may be symlinks that
+ * escape the repository root; `realpathContained` resolves symlinks and
+ * throws for any that leave the root, so the caller skips it instead of
+ * reading — and leaking — an external file's contents into analysis output.
+ * A contained file (including an in-repo symlink) resolves to its real path
+ * and is read exactly as before.
+ */
+export async function readContainedFile(
+  repoRoot: string,
+  file: string,
+): Promise<string> {
+  return readFile(await realpathContained(repoRoot, file), "utf8");
+}
 
 /** Capability mode requested for an analysis run. */
 export type AnalyzerCapabilityMode = "syntactic" | "type-resolved";
@@ -684,7 +701,7 @@ export async function analyzeTypeScript(
   for (const file of supported) {
     let text: string;
     try {
-      text = await readFile(path.join(repoRoot, file), "utf8");
+      text = await readContainedFile(repoRoot, file);
     } catch (error) {
       skippedFiles.push(file);
       parseDiagnostics.push({

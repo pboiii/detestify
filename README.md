@@ -11,8 +11,9 @@ An evidence-backed test-portfolio policy engine for coding agents: the smallest 
 ## Status
 
 - Specification: complete and independently re-validated (schemas, examples, goldens, fixtures, YAML — 364 checks, 0 failures).
-- M0 implementation: TypeScript package scaffold and read-only `doctor` command.
-- Open items before certification claims: see `spec/handoff/open-register.md` and `spec/conflicts.md`.
+- Implementation: milestones M0–M5 and M8 complete — all six commands real (`plan --diff`, `verify-change`, `inventory`, `audit`, `cleanup-plan`, `doctor`), hook layer with Claude and Codex adapters and one-shot Stop remediation, read-only cleanup planner. `npm run test:pr` runs the full deterministic suite (99 policy goldens, hook contracts, cleanup safety, security, fixture CLI on tasks 01–04) green.
+- ADR-002 threshold measurements (warm macOS, 2026-08-28): no-op p95 282 ms (< 500 ms), zero-config `plan --diff` p95 769 ms (< 2000 ms), byte-deterministic reports verified, clean `npx` execution from the packed tarball verified. Linux measurements pending.
+- Not yet claimed: M9 dual-host canary, live host payload captures, and certification — see `spec/handoff/open-register.md` and `spec/conflicts.md`.
 - Implementation entry point: `spec/handoff/IMPLEMENTATION_BRIEF.md`, milestones in `spec/handoff/milestones.md`.
 
 ## M0 development

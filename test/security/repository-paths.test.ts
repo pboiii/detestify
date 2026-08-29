@@ -23,6 +23,7 @@ import {
 } from "../../src/repository/discovery.js";
 import { snapshotRepository } from "../../src/repository/git.js";
 import { fingerprintDiff } from "../../src/repository/fingerprint.js";
+import { analyzeTypeScript } from "../../src/analysis/typescript.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -183,6 +184,34 @@ describe("fingerprint symlink containment", () => {
       expect(diff.limitations.some((l) => l.includes("leak"))).toBe(true);
     } finally {
       await rm(gitRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("analyzer symlink containment (TM-002/TM-005)", () => {
+  it("does not read an escaping symlink source into AST facts", async () => {
+    // escape-file (a repo entry) is a symlink to outside/secret.txt, which
+    // contains an export. The analyzer must refuse to follow it out of the
+    // repo, so no external symbol name reaches the analysis output.
+    const leaked = path.join(repoRoot, "escape-source.ts");
+    await symlink(path.join(outsideDir, "leaked-source.ts"), leaked);
+    await writeFile(
+      path.join(outsideDir, "leaked-source.ts"),
+      "export const EXFILTRATED = 1;\n",
+    );
+    try {
+      const analysis = await analyzeTypeScript({
+        repoRoot,
+        files: ["escape-source.ts", "src/inside.ts"],
+      });
+      const names = analysis.files.flatMap((file) =>
+        file.exports.map((entry) => entry.name),
+      );
+      expect(names).not.toContain("EXFILTRATED");
+      // The contained sibling source is still analyzed normally.
+      expect(names).toContain("i");
+    } finally {
+      await rm(leaked, { force: true });
     }
   });
 });

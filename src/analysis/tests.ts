@@ -2,7 +2,6 @@
 // convention, what suites/tests they declare, and which source files they
 // import directly. Pure AST/text facts; repository code never runs.
 
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   Node,
@@ -14,6 +13,7 @@ import {
 } from "ts-morph";
 import {
   normalizeRelativePath,
+  readContainedFile,
   resolveModuleSpecifier,
   type AnalyzerInput,
   type ImportEdgeFact,
@@ -291,7 +291,7 @@ export async function analyzeTests(
     }
     let text: string;
     try {
-      text = await readFile(path.join(repoRoot, file), "utf8");
+      text = await readContainedFile(repoRoot, file);
     } catch {
       unreadableFiles.push(file);
       continue;

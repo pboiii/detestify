@@ -3,10 +3,13 @@
 // persistence/migration markers, serialization/schema files, configuration,
 // generated code). Pure path/text/AST matching; repository code never runs.
 
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Node, Project, SyntaxKind, type SourceFile } from "ts-morph";
-import { normalizeRelativePath, type AnalyzerInput } from "./typescript.js";
+import {
+  normalizeRelativePath,
+  readContainedFile,
+  type AnalyzerInput,
+} from "./typescript.js";
 
 export type BoundaryKind =
   | "route-registration"
@@ -286,7 +289,7 @@ export async function analyzeBoundaries(
   for (const file of files) {
     let text: string;
     try {
-      text = await readFile(path.join(repoRoot, file), "utf8");
+      text = await readContainedFile(repoRoot, file);
     } catch {
       unreadableFiles.push(file);
       continue;
