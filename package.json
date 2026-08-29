@@ -37,13 +37,14 @@
     "test:schemas": "vitest run test/unit/schemas.test.ts",
     "test:unit": "vitest run test/unit",
     "test:policy-goldens": "vitest run test/policy-goldens --passWithNoTests",
-    "test:fixture-cli": "vitest run test/integration --passWithNoTests",
-    "test:hook-normalization": "vitest run test/unit --passWithNoTests",
+    "test:fixture-cli": "vitest run test/fixture-cli --passWithNoTests",
+    "test:hook-normalization": "vitest run test/hook-contracts/normalization.test.ts --passWithNoTests",
     "test:hook-contracts": "vitest run test/hook-contracts --passWithNoTests",
     "test:cleanup-safety": "vitest run test/cleanup-safety test/unit/cleanup-planner test/unit/cleanup-detectors --passWithNoTests",
     "test:security": "vitest run test/security --passWithNoTests",
-    "test:pr": "npm run typecheck && npm run lint && npm run format:check && npm run validate:spec && npm run test:schemas && npm run test:unit",
-    "benchmark:canary": "tsx scripts/run-canary.ts"
+    "test:pr": "npm run typecheck && npm run lint && npm run format:check && npm run validate:spec && npm run test:schemas && npm run test:unit && npm run test:policy-goldens && npm run test:hook-contracts && npm run test:cleanup-safety && npm run test:security && npm run test:fixtures && npm run test:fixture-cli",
+    "benchmark:canary": "tsx scripts/run-canary.ts",
+    "test:fixtures": "vitest run test/fixtures --passWithNoTests"
   },
   "dependencies": {
     "ajv": "8.20.0",

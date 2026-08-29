@@ -38,7 +38,11 @@ function resolveProjectRoot(): string {
 async function runProcess(
   command: string,
   args: string[],
-  opts: { cwd?: string; env?: Record<string, string>; timeoutMs: number },
+  opts: {
+    cwd?: string;
+    env?: Record<string, string> | undefined;
+    timeoutMs: number;
+  },
 ): Promise<OracleResult> {
   const start = Date.now();
   return await new Promise<OracleResult>((resolve) => {

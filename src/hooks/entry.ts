@@ -8,7 +8,6 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import {
-  buildDecision,
   parseDecision,
   type HookEvent,
   type NormalizedDecision,
@@ -28,6 +27,7 @@ import {
   normalizeCodexInput,
   translateCodexDecision,
 } from "./codex/adapter.js";
+import { coreHookDecider } from "./decider.js";
 
 /** The core decision seam shared with the CLI (`verify-change` core). */
 export type HookDecider = (
@@ -39,25 +39,6 @@ const BLOCK_GUARD_EVENTS: ReadonlySet<HookEvent> = new Set([
   "subagent_stop",
   "task_complete",
 ]);
-
-/** Fallback until the M5 verify-change core lands: advise, claim nothing. */
-const adviseCorePending: HookDecider = (invocation) =>
-  buildDecision({
-    action: "advise",
-    confidence: "unknown",
-    reason_code: "CORE_NOT_CONNECTED",
-    summary:
-      "Test Steward verification core is not connected for this repository yet; no verification claim is made.",
-    remediation: null,
-    report_path: null,
-    limitations: [
-      "The verify-change core decision seam is not wired in this build.",
-    ],
-    loop_guard: { next_attempt: 0 },
-  }).then((decision) => {
-    void invocation;
-    return decision;
-  });
 
 async function pathExists(target: string): Promise<boolean> {
   try {
@@ -83,7 +64,7 @@ async function findGitRoot(start: string): Promise<string | null> {
 }
 
 export interface HookEntryOptions {
-  /** Core decision provider; defaults to the pending-core advise decision. */
+  /** Core decision provider; defaults to the verify-change core decider. */
   readonly decide?: HookDecider;
   readonly stateDir?: string;
   readonly hostVersion?: string | null;
@@ -222,7 +203,7 @@ export async function runHook(
         ? await normalizeClaudeInput(raw, event as HookEvent, context)
         : await normalizeCodexInput(raw, event as HookEvent, context);
 
-    const decide = options.decide ?? adviseCorePending;
+    const decide = options.decide ?? coreHookDecider;
     const guarded = await applyOneShotGuard(
       invocation,
       await decide(invocation),

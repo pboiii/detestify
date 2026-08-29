@@ -235,7 +235,7 @@ describe("malicious payload handling (TM-001, TM-007, TM-011)", () => {
       repoRoot: "/tmp",
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).not.toContain('"block"');
+    expect(result.stdout ?? "").not.toContain('"block"');
   });
 
   it("host-spoofed event mismatch is rejected", async () => {
