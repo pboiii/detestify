@@ -40,7 +40,7 @@
     "test:fixture-cli": "vitest run test/integration --passWithNoTests",
     "test:hook-normalization": "vitest run test/unit --passWithNoTests",
     "test:hook-contracts": "vitest run test/hook-contracts --passWithNoTests",
-    "test:cleanup-safety": "vitest run test/unit --passWithNoTests",
+    "test:cleanup-safety": "vitest run test/cleanup-safety test/unit/cleanup-planner test/unit/cleanup-detectors --passWithNoTests",
     "test:security": "vitest run test/security --passWithNoTests",
     "test:pr": "npm run typecheck && npm run lint && npm run format:check && npm run validate:spec && npm run test:schemas && npm run test:unit",
     "benchmark:canary": "tsx scripts/run-canary.ts"

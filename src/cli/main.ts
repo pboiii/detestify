@@ -1,13 +1,12 @@
 import { Command, CommanderError } from "commander";
 import { EXIT_CODES, type ExitCode } from "./exit-codes.js";
 import { runDoctor } from "./commands/doctor.js";
-
-interface CommandOptions {
-  readonly repo?: string;
-  readonly config?: string;
-  readonly report?: string;
-  readonly json?: string;
-}
+import { run as runPlan } from "./commands/plan.js";
+import { run as runVerifyChange } from "./commands/verify-change.js";
+import { run as runInventory } from "./commands/inventory.js";
+import { run as runAudit } from "./commands/audit.js";
+import { run as runCleanupPlan } from "./commands/cleanup-plan.js";
+import type { CommandOptions } from "./options.js";
 
 function addCommonOptions(command: Command): Command {
   return command
@@ -15,19 +14,6 @@ function addCommonOptions(command: Command): Command {
     .option("--config <path>", "inert JSON configuration path")
     .option("--report <path>", "write the report to this path")
     .option("--json <path|->", "write JSON to a path or stdout");
-}
-
-function unavailableCommand(name: string): (options: CommandOptions) => never {
-  return (options) => {
-    const jsonOnly = options.json === "-";
-    const message = `${name} is not implemented in milestone M0.`;
-    (jsonOnly ? process.stderr : process.stdout).write(`${message}\n`);
-    throw new CommanderError(
-      EXIT_CODES.UNSUPPORTED_REPOSITORY,
-      "test-steward.notImplemented",
-      message,
-    );
-  };
 }
 
 export function createProgram(): Command {
@@ -40,19 +26,22 @@ export function createProgram(): Command {
 
   addCommonOptions(program.command("plan").description("Plan test evidence"))
     .requiredOption("--diff", "analyze the current diff")
-    .action(unavailableCommand("plan --diff"));
+    .option("--base <revision>", "base revision for the diff")
+    .action(runPlan);
   addCommonOptions(
     program.command("verify-change").description("Verify a completed change"),
-  ).action(unavailableCommand("verify-change"));
+  )
+    .option("--base <revision>", "base revision for the diff")
+    .action(runVerifyChange);
   addCommonOptions(
     program.command("inventory").description("Inventory repository tests"),
-  ).action(unavailableCommand("inventory"));
+  ).action(runInventory);
   addCommonOptions(
     program.command("audit").description("Audit the test portfolio"),
-  ).action(unavailableCommand("audit"));
+  ).action(runAudit);
   addCommonOptions(
     program.command("cleanup-plan").description("Plan read-only cleanup"),
-  ).action(unavailableCommand("cleanup-plan"));
+  ).action(runCleanupPlan);
   addCommonOptions(
     program.command("doctor").description("Check local compatibility"),
   ).action(async (options: CommandOptions) => {

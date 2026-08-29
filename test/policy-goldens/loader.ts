@@ -9,10 +9,10 @@ export interface GoldenPair {
 
 export async function loadGoldenPairs(dir: string): Promise<GoldenPair[]> {
   const entries = await readdir(dir);
-  const inputs = entries.filter((e) => !e.endsWith(".expected.json")).sort();
+  const inputs = entries.filter((e) => e.endsWith(".input.json")).sort();
   const pairs: GoldenPair[] = [];
   for (const inputFile of inputs) {
-    const base = inputFile.replace(/\.[^.]+$/, "");
+    const base = inputFile.replace(/\.input\.json$/, "");
     const expectedFile = `${base}.expected.json`;
     if (!entries.includes(expectedFile)) continue;
     const inputRaw = await readFile(path.join(dir, inputFile), "utf8");
