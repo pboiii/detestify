@@ -6,10 +6,13 @@ The alpha supports JavaScript and TypeScript repositories on macOS and Linux wit
 
 ## Install
 
-Install the exact alpha from a trusted directory, then run it against your repository:
+The npm package is not published yet. Install the exact alpha from this trusted
+checkout, then run it against your repository:
 
 ```sh
-npm install --global detestify@0.1.0-alpha.0
+npm ci --ignore-scripts
+npm run build
+npm install --global .
 detestify plan --repo /path/to/repository --diff
 ```
 

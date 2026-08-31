@@ -4,11 +4,13 @@
 
 ## 1. Read-only first run
 
-Install the exact package from a trusted directory, then point it at a
-JavaScript or TypeScript Git repository:
+The npm package is not published yet. Install the exact alpha from this trusted
+checkout, then point it at a JavaScript or TypeScript Git repository:
 
 ```text
-npm install --global detestify@0.1.0-alpha.0
+npm ci --ignore-scripts
+npm run build
+npm install --global .
 ```
 
 From the target repository:
@@ -23,7 +25,7 @@ The first run:
 - detects supported repository shape and nearby tests;
 - reads inert package metadata and TypeScript syntax/exports;
 - produces a concise decision and a detailed local JSON report;
-- does not run project scripts, install project dependencies, invoke mutation, edit files, create hooks, use the network beyond obtaining the explicitly requested npm package, or send telemetry.
+- does not run target-project scripts, install target-project dependencies, invoke mutation, edit files, create hooks, use the network, or send telemetry.
 
 Expected terminal structure:
 
