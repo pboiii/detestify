@@ -94,7 +94,7 @@ describe("loadProtectionIndex", () => {
   it("fails closed when the expiry ledger is corrupt, without dropping valid records", async () => {
     const repo = await makeRepo({
       [PROTECTED_TESTS_LEDGER]: validLedger,
-      ".test-steward/expiry.json": "{broken",
+      ".detestify/expiry.json": "{broken",
     });
     const index = await loadProtectionIndex(repo);
     expect(index.deletionEligible).toBe(false);

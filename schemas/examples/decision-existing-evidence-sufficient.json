@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "id": "dec-existing-retry-evidence",
+  "domain": "change",
+  "outcome": "EXISTING_EVIDENCE_SUFFICIENT",
+  "gate_action": "allow",
+  "confidence": "high",
+  "reason_code": "EXISTING_RETRY_EVIDENCE_SUFFICIENT",
+  "summary": "The existing retry test already detects the reproduced failure; no test edit is needed.",
+  "rationale": "The focused integration test fails for the reproduced retry fault and observes the protected side effect, so changing or adding a test would duplicate sufficient evidence.",
+  "remediation": null,
+  "obligation_candidate_ids": ["obl-webhook-retry"],
+  "evidence_ids": ["ev-existing-retry-test"],
+  "target": {
+    "scope": "integration",
+    "purpose": "regression",
+    "technique": "existing_evidence",
+    "cadence": "pull_request",
+    "failure_class": "retry-after-failed-claim",
+    "test_path": "test/integration/webhook.test.ts"
+  },
+  "cleanup_requirements": null,
+  "limitations": []
+}

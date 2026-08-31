@@ -17,6 +17,7 @@ The governing principle is:
 
 - Optimize for the smallest **defensible** portfolio, not the smallest count.
 - `NO_TEST_SUPPORTED` is a first-class outcome.
+- `EXISTING_EVIDENCE_SUFFICIENT` is a first-class outcome when a retained test already detects the same failure mechanism and needs no edit.
 - Choose the cheapest scope that can trigger the failure mechanism and observe the protected contract.
 - Never test below the boundary where the failure actually exists.
 - Prefer observable behavior and state over private methods and call choreography.

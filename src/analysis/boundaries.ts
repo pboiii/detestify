@@ -128,8 +128,8 @@ const CONFIG_PATH_PATTERNS: readonly { pattern: RegExp; detail: string }[] = [
     detail: "CI workflow",
   },
   {
-    pattern: /(^|\/)\.test-steward\/[^/]+\.json$/,
-    detail: "test-steward configuration",
+    pattern: /(^|\/)\.detestify\/[^/]+\.json$/,
+    detail: "Detestify configuration",
   },
   { pattern: /(^|\/)Makefile$/, detail: "Makefile" },
 ];

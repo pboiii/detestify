@@ -1,5 +1,8 @@
 node_modules/
 dist/
-coverage/
-.test-steward/
+/coverage/
+/.detestify/
+# Preserve pre-rename local state without treating it as an active path.
+/.test-steward/
+/.ai-bridge/
 .DS_Store

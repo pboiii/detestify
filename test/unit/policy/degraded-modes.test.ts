@@ -59,6 +59,44 @@ describe("degraded modes", () => {
     expect(decision.gate_action).toBe("advise");
   });
 
+  it.each(["TST-003", "TST-007", "PLC-001", "PLC-002"])(
+    "%s waits for the observed failure boundary before selecting a target",
+    (ruleId) => {
+      const unresolved = decideRule(
+        det({ ruleId, declaredRefs: [`policy:${ruleId}`] }),
+        baseOptions,
+      ).decision;
+      expect(unresolved.outcome).toBe("INSUFFICIENT_EVIDENCE");
+      expect(unresolved.target.scope).toBeNull();
+      expect(unresolved.limitations).toContainEqual(
+        expect.stringContaining("do not resolve"),
+      );
+    },
+  );
+
+  it("uses a target resolved from the observed regression boundary", () => {
+    const { decision } = decideRule(
+      det({
+        ruleId: "TST-003",
+        observedRefs: ["reproduction:retry-after-claim"],
+        resolvedTarget: {
+          scope: "integration",
+          purpose: "regression",
+          technique: "example",
+          cadence: "pull_request",
+          failure_class: "retry-after-failed-claim",
+        },
+      }),
+      baseOptions,
+    );
+    expect(decision.outcome).toBe("NEW_TEST_CANDIDATE");
+    expect(decision.target).toMatchObject({
+      scope: "integration",
+      purpose: "regression",
+      failure_class: "retry-after-failed-claim",
+    });
+  });
+
   it("semantic rule proceeds when declared provenance backs it", () => {
     const { decision } = decideRule(
       det({ declaredRefs: ["golden:TST-001"] }),

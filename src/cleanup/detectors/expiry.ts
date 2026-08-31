@@ -1,17 +1,17 @@
-// Expiry detector: ONLY explicit `.test-steward/expiry.json` markers, never
+// Expiry detector: ONLY explicit `.detestify/expiry.json` markers, never
 // inference. An expired declared record is a HISTORICAL signal (the
 // independent evidence class of ADR-006); the removal condition still has to
 // be verified by the planner and a human.
 
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { readContainedRegularFile } from "../../repository/paths.js";
 import {
   detectionId,
   type CleanupDetection,
   type DetectorResult,
 } from "./types.js";
 
-export const EXPIRY_MARKER_PATH = ".test-steward/expiry.json";
+export const EXPIRY_MARKER_PATH = ".detestify/expiry.json";
+const EXPIRY_MARKER_SIZE_LIMIT = 1024 * 1024;
 
 const BASE_LIMITATIONS = [
   "Only explicit expiry markers are read; expiry is never inferred.",
@@ -74,14 +74,20 @@ export async function detectExpiry(
 ): Promise<DetectorResult> {
   let raw: string;
   try {
-    raw = await readFile(path.join(repoRoot, EXPIRY_MARKER_PATH), "utf8");
+    raw = (
+      await readContainedRegularFile(
+        repoRoot,
+        EXPIRY_MARKER_PATH,
+        EXPIRY_MARKER_SIZE_LIMIT,
+      )
+    ).toString("utf8");
   } catch {
     return {
       detector: "expiry",
       detections: [],
       limitations: [
         ...BASE_LIMITATIONS,
-        `No ${EXPIRY_MARKER_PATH} marker file present.`,
+        `No readable regular ${EXPIRY_MARKER_PATH} marker file present.`,
       ],
     };
   }

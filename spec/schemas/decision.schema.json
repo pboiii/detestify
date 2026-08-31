@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://test-steward.dev/schemas/decision.schema.json",
-  "title": "Test Steward decision",
+  "title": "Detestify decision",
   "description": "An explainable change-planning or cleanup-candidate decision.",
   "type": "object",
   "additionalProperties": false,
@@ -43,6 +43,7 @@
       "description": "Allowed alpha outcome for the selected domain.",
       "enum": [
         "NO_TEST_SUPPORTED",
+        "EXISTING_EVIDENCE_SUFFICIENT",
         "EXISTING_TEST_UPDATE_CANDIDATE",
         "NEW_TEST_CANDIDATE",
         "INSUFFICIENT_EVIDENCE",
@@ -281,6 +282,7 @@
           "outcome": {
             "enum": [
               "NO_TEST_SUPPORTED",
+              "EXISTING_EVIDENCE_SUFFICIENT",
               "EXISTING_TEST_UPDATE_CANDIDATE",
               "NEW_TEST_CANDIDATE",
               "INSUFFICIENT_EVIDENCE"
@@ -290,6 +292,43 @@
           "cleanup_requirements": {
             "type": "null",
             "description": "Conditional constraint for cleanup_requirements."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "EXISTING_EVIDENCE_SUFFICIENT",
+            "description": "Conditional selector for outcome."
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "gate_action": {
+            "const": "allow",
+            "description": "Sufficient existing evidence requires no remediation."
+          },
+          "remediation": {
+            "type": "null",
+            "description": "Sufficient existing evidence has no remediation."
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "technique": {
+                "const": "existing_evidence",
+                "description": "The unchanged existing test is the selected evidence."
+              },
+              "test_path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Repository-relative path to the sufficient existing test."
+              }
+            },
+            "description": "The existing test that already protects the obligation."
           }
         }
       }

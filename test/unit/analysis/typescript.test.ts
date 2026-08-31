@@ -1,8 +1,11 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, truncate, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeTypeScript } from "../../../src/analysis/typescript.js";
+import {
+  analyzeTypeScript,
+  hasEquivalentRuntimeEmit,
+} from "../../../src/analysis/typescript.js";
 
 let repoRoot = "";
 
@@ -92,6 +95,17 @@ beforeAll(async () => {
     path.join(repoRoot, "src", "compat.ts"),
     "export const mode = 1;\n",
   );
+  await writeFile(
+    path.join(repoRoot, "src", "ShotMedia.tsx"),
+    "export const ShotMedia = () => null;\n",
+  );
+  await writeFile(
+    path.join(repoRoot, "src", "wcv-control.cjs"),
+    [
+      "async function createWcvControlServer() {}",
+      "module.exports = { createWcvControlServer };",
+    ].join("\n"),
+  );
   await writeFile(path.join(repoRoot, "src", "broken.ts"), "const x = ;\n");
   await writeFile(path.join(repoRoot, "README.md"), "not code\n");
 });
@@ -109,11 +123,26 @@ const FILES = [
   "src/lazy.ts",
   "src/side-effect.ts",
   "src/compat.ts",
+  "src/ShotMedia.tsx",
+  "src/wcv-control.cjs",
   "src/broken.ts",
   "README.md",
 ];
 
 describe("typescript analyzer: syntactic mode", () => {
+  it("proves type-only edits leave runtime output unchanged", () => {
+    const before = `interface Options { enabled: boolean }\nexport function run(options: Options) { return options.enabled }\n`;
+    const after = `export function run(options: { enabled: boolean }) { return options.enabled }\n`;
+    expect(hasEquivalentRuntimeEmit(before, after, "src/run.ts")).toBe(true);
+    expect(
+      hasEquivalentRuntimeEmit(
+        before,
+        after.replace("return options.enabled", "return !options.enabled"),
+        "src/run.ts",
+      ),
+    ).toBe(false);
+  });
+
   it("reports syntactic capability with parser version and path-based resolution", async () => {
     const analysis = await analyzeTypeScript({
       repoRoot,
@@ -265,6 +294,49 @@ describe("typescript analyzer: syntactic mode", () => {
     ]);
   });
 
+  it("resolves a runtime .js specifier to an existing TSX source", async () => {
+    await writeFile(
+      path.join(repoRoot, "src", "ShotMedia.test.tsx"),
+      'import { ShotMedia } from "./ShotMedia.js";\n',
+    );
+    const analysis = await analyzeTypeScript({
+      repoRoot,
+      files: [...FILES, "src/ShotMedia.test.tsx"],
+      requested: "syntactic",
+    });
+
+    expect(
+      analysis.files.find((facts) => facts.file === "src/ShotMedia.test.tsx")
+        ?.imports,
+    ).toEqual([
+      {
+        from: "src/ShotMedia.test.tsx",
+        specifier: "./ShotMedia.js",
+        to: "src/ShotMedia.tsx",
+        resolution: "in-repo",
+      },
+    ]);
+  });
+
+  it("extracts named exports from a CommonJS module.exports object", async () => {
+    const analysis = await analyzeTypeScript({
+      repoRoot,
+      files: FILES,
+      requested: "syntactic",
+    });
+
+    expect(
+      analysis.files.find((facts) => facts.file === "src/wcv-control.cjs")
+        ?.exports,
+    ).toEqual([
+      {
+        name: "createWcvControlServer",
+        kind: "function",
+        form: "named",
+      },
+    ]);
+  });
+
   it("reports parse diagnostics for files with syntax errors", async () => {
     const analysis = await analyzeTypeScript({
       repoRoot,
@@ -404,5 +476,25 @@ describe("typescript analyzer: input handling", () => {
     expect(analysis.capabilities.parseDiagnostics[0]?.file).toBe(
       "src/missing.ts",
     );
+  });
+
+  it("skips source files over the read limit", async () => {
+    const oversized = path.join(repoRoot, "src", "oversized.ts");
+    await writeFile(oversized, "");
+    await truncate(oversized, 8 * 1024 * 1024 + 1);
+    try {
+      const analysis = await analyzeTypeScript({
+        repoRoot,
+        files: ["src/oversized.ts"],
+        requested: "syntactic",
+      });
+      expect(analysis.files).toEqual([]);
+      expect(analysis.capabilities.skippedFiles).toEqual(["src/oversized.ts"]);
+      expect(analysis.capabilities.parseDiagnostics[0]?.message).toContain(
+        "read limit",
+      );
+    } finally {
+      await rm(oversized);
+    }
   });
 });

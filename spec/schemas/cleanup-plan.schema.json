@@ -65,8 +65,11 @@
         "required": [
           "id",
           "test_paths",
+          "remove_paths",
+          "retain_paths",
           "action",
           "obligation_ids",
+          "obligation_preservation",
           "structural_signals",
           "independent_signals",
           "protected_checks",
@@ -93,6 +96,26 @@
             "minItems": 1,
             "uniqueItems": true
           },
+          "remove_paths": {
+            "description": "Repository-relative test paths proposed for removal. Empty until a directional removal hypothesis is validated.",
+            "type": "array",
+            "items": {
+              "description": "Test path proposed for removal.",
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "retain_paths": {
+            "description": "Repository-relative test paths that must remain for this hypothesis.",
+            "type": "array",
+            "items": {
+              "description": "Test path retained as evidence.",
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
           "action": {
             "description": "Conservative alpha cleanup action.",
             "enum": [
@@ -112,6 +135,33 @@
               "minLength": 1
             },
             "uniqueItems": true
+          },
+          "obligation_preservation": {
+            "description": "Retained test owners that preserve each candidate obligation.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "obligation_id",
+                "retained_paths"
+              ],
+              "properties": {
+                "obligation_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retained_paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true
+                }
+              }
+            }
           },
           "structural_signals": {
             "description": "Static or structural redundancy signals.",
@@ -171,6 +221,9 @@
             "required": [
               "status",
               "commands_ref",
+              "candidate_id",
+              "remove_paths",
+              "retain_paths",
               "preserved_obligations",
               "limitations"
             ],
@@ -190,6 +243,33 @@
                   "string",
                   "null"
                 ]
+              },
+              "candidate_id": {
+                "description": "Candidate identifier this counterfactual validated, or null when not run.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "remove_paths": {
+                "description": "Removal paths validated by this counterfactual.",
+                "type": "array",
+                "items": {
+                  "description": "Validated removal path.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "retain_paths": {
+                "description": "Retained paths validated by this counterfactual.",
+                "type": "array",
+                "items": {
+                  "description": "Validated retained path.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
               },
               "preserved_obligations": {
                 "description": "Obligations demonstrated preserved by the counterfactual.",
@@ -319,6 +399,22 @@
                   "minItems": 1,
                   "description": "Conditional constraint for independent_signals."
                 },
+                "obligation_ids": {
+                  "minItems": 1,
+                  "description": "A deletion candidate must name at least one preserved obligation."
+                },
+                "obligation_preservation": {
+                  "minItems": 1,
+                  "description": "A deletion candidate must map obligations to retained owners."
+                },
+                "remove_paths": {
+                  "minItems": 1,
+                  "description": "A deletion candidate must name at least one removal path."
+                },
+                "retain_paths": {
+                  "minItems": 1,
+                  "description": "A deletion candidate must name at least one retained path."
+                },
                 "protected_checks": {
                   "minItems": 1,
                   "items": {
@@ -335,6 +431,60 @@
                     "description": "Conditional item constraint for protected_checks."
                   },
                   "description": "Conditional constraint for protected_checks."
+                },
+                "counterfactual": {
+                  "properties": {
+                    "status": {
+                      "const": "passed",
+                      "description": "The candidate-bound counterfactual must pass."
+                    },
+                    "commands_ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "A deletion candidate must reference the counterfactual evidence."
+                    },
+                    "candidate_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "The counterfactual must name its candidate."
+                    },
+                    "remove_paths": {
+                      "minItems": 1,
+                      "description": "The counterfactual must name the validated removal paths."
+                    },
+                    "retain_paths": {
+                      "minItems": 1,
+                      "description": "The counterfactual must name the validated retained paths."
+                    },
+                    "preserved_obligations": {
+                      "minItems": 1,
+                      "description": "The counterfactual must name preserved obligations."
+                    }
+                  },
+                  "description": "Passing counterfactual bound to this removal hypothesis."
+                },
+                "worktree_validation": {
+                  "properties": {
+                    "status": {
+                      "const": "passed",
+                      "description": "The linked worktree validation must pass."
+                    },
+                    "worktree_ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "A deletion candidate must reference its worktree validation."
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "The worktree validation must name the validated revision."
+                    },
+                    "cleanup_complete": {
+                      "const": true,
+                      "description": "The validation worktree and child processes must be cleaned up."
+                    }
+                  },
+                  "description": "Passing worktree validation linked to the counterfactual."
                 },
                 "human_approval": {
                   "properties": {
@@ -354,13 +504,30 @@
                 "action": {
                   "enum": [
                     "MERGE_CANDIDATE",
-                    "INSUFFICIENT_EVIDENCE"
+                    "MOVE_CANDIDATE"
                   ],
                   "description": "Conditional selector for action."
                 }
               }
             },
-            "then": {}
+            "then": {
+              "properties": {
+                "protected_checks": {
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "passed": {
+                        "const": true,
+                        "description": "Protected tests cannot be moved or merged."
+                      }
+                    },
+                    "required": [
+                      "passed"
+                    ]
+                  }
+                }
+              }
+            }
           }
         ]
       }

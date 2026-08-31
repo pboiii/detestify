@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCleanupPlan,
   type CandidateDraft,
+  type CleanupEvidenceRecord,
   type CleanupPlanInput,
 } from "../../../src/cleanup/planner.js";
 import type { ProtectionIndex } from "../../../src/cleanup/protection.js";
@@ -41,6 +42,53 @@ function plan(
     candidates,
     protection: openIndex,
     ...overrides,
+  });
+}
+
+function boundEvidence(
+  ids: readonly string[],
+  candidateId: string,
+  removePaths: readonly string[],
+  retainPaths: readonly string[],
+): CleanupEvidenceRecord[] {
+  return ids.map((id) => ({
+    id,
+    status: "observed",
+    gate_trust: "eligible",
+    data: {
+      candidate_id: candidateId,
+      remove_paths: [...removePaths],
+      retain_paths: [...retainPaths],
+    },
+  }));
+}
+
+function eligibleDeleteDraft(): CandidateDraft {
+  return draft({
+    id: "c1",
+    structural_signals: ["ev-ast"],
+    independent_signals: ["ev-removal"],
+    remove_paths: ["test/b.test.ts"],
+    retain_paths: ["test/a.test.ts"],
+    obligation_ids: ["OBL-1"],
+    obligation_preservation: [
+      { obligation_id: "OBL-1", retained_paths: ["test/a.test.ts"] },
+    ],
+    counterfactual: {
+      status: "passed",
+      commands_ref: "run-1",
+      candidate_id: "c1",
+      remove_paths: ["test/b.test.ts"],
+      retain_paths: ["test/a.test.ts"],
+      preserved_obligations: ["OBL-1"],
+      limitations: [],
+    },
+    worktree_validation: {
+      status: "passed",
+      worktree_ref: "run-1",
+      revision: repository.revision,
+      cleanup_complete: true,
+    },
   });
 }
 
@@ -113,19 +161,80 @@ describe("buildCleanupPlan ranking", () => {
 
 describe("buildCleanupPlan evidence rule", () => {
   it("derives DELETE_CANDIDATE without a proposal when all conditions hold", () => {
-    const result = plan([
-      draft({
-        id: "c1",
-        structural_signals: ["ev-ast"],
-        independent_signals: ["ev-removal"],
-      }),
-    ]);
+    const candidate = eligibleDeleteDraft();
+    const result = plan([candidate], {
+      evidence: boundEvidence(
+        ["ev-ast", "ev-removal"],
+        candidate.id,
+        candidate.remove_paths!,
+        candidate.retain_paths!,
+      ),
+    });
     expect(result.candidates[0]!.action).toBe("DELETE_CANDIDATE");
     expect(result.candidates[0]!.human_approval).toEqual({
       required: true,
       status: "pending",
       approver_ref: null,
     });
+  });
+
+  it("withholds deletion when a signal is unresolved or bound elsewhere", () => {
+    const candidate = {
+      ...eligibleDeleteDraft(),
+      proposed_action: "DELETE_CANDIDATE",
+    } satisfies CandidateDraft;
+    const result = plan([candidate], {
+      evidence: boundEvidence(
+        ["ev-ast"],
+        "another-candidate",
+        candidate.remove_paths!,
+        candidate.retain_paths!,
+      ),
+    });
+    expect(result.candidates[0]).toMatchObject({
+      action: "MERGE_CANDIDATE",
+      remove_paths: ["test/b.test.ts"],
+      retain_paths: ["test/a.test.ts"],
+    });
+    expect(result.candidates[0]!.limitations).toContainEqual(
+      expect.stringContaining("do not resolve"),
+    );
+  });
+
+  it("requires passing counterfactual and cleaned worktree validation", () => {
+    const passing = eligibleDeleteDraft();
+    const candidates: CandidateDraft[] = [
+      {
+        ...passing,
+        counterfactual: { ...passing.counterfactual!, status: "failed" },
+      },
+      {
+        ...passing,
+        worktree_validation: {
+          ...passing.worktree_validation!,
+          status: "failed",
+        },
+      },
+      {
+        ...passing,
+        worktree_validation: {
+          ...passing.worktree_validation!,
+          cleanup_complete: false,
+        },
+      },
+    ];
+    for (const candidate of candidates) {
+      expect(
+        plan([candidate], {
+          evidence: boundEvidence(
+            ["ev-ast", "ev-removal"],
+            candidate.id,
+            candidate.remove_paths!,
+            candidate.retain_paths!,
+          ),
+        }).candidates[0]!.action,
+      ).not.toBe("DELETE_CANDIDATE");
+    }
   });
 
   it("never promotes past the detector proposal", () => {
@@ -237,6 +346,29 @@ describe("buildCleanupPlan identity matching", () => {
     );
     expect(result.candidates[0]!.action).toBe("KEEP");
   });
+
+  it.each(["MOVE_CANDIDATE", "MERGE_CANDIDATE"] as const)(
+    "keeps protected tests instead of emitting %s",
+    (proposed_action) => {
+      const result = plan(
+        [
+          draft({
+            id: "c1",
+            test_paths: ["test/contract/ack.test.ts", "test/other.test.ts"],
+            remove_paths: ["test/contract/ack.test.ts"],
+            retain_paths: ["test/other.test.ts"],
+            proposed_action,
+            structural_signals: ["ev-ast"],
+          }),
+        ],
+        { protection: protectedIndex },
+      );
+      expect(result.candidates[0]!.action).toBe("KEEP");
+      expect(result.candidates[0]!.limitations).toContainEqual(
+        expect.stringContaining(`prevents ${proposed_action}`),
+      );
+    },
+  );
 });
 
 describe("buildCleanupPlan limitation propagation", () => {

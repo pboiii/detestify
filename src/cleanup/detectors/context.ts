@@ -8,10 +8,10 @@ import {
   Node,
   Project,
   SyntaxKind,
+  ts,
   type CallExpression,
   type SourceFile,
 } from "ts-morph";
-import ts from "typescript";
 import { analyzeTests, type TestFileFacts } from "../../analysis/tests.js";
 import { listRepositoryFiles } from "../../repository/discovery.js";
 
@@ -33,6 +33,8 @@ export interface AssertionSubjectFacts {
   readonly baseCallee: string | null;
   /** Base identifier name when the subject base is a plain identifier, else null. */
   readonly baseIdentifier: string | null;
+  /** Base identifier is initialized by a declaration containing a call. */
+  readonly baseIdentifierFromCall: boolean;
 }
 
 export interface AssertionFact {
@@ -200,6 +202,21 @@ function subjectFacts(node: Node): AssertionSubjectFacts {
     }
   }
 
+  const baseIdentifierFromCall =
+    Node.isIdentifier(base) &&
+    base.getDefinitionNodes().some((definition) => {
+      if (!Node.isVariableDeclaration(definition)) {
+        return false;
+      }
+      const initializer = definition.getInitializer();
+      return (
+        initializer !== undefined &&
+        (Node.isCallExpression(initializer) ||
+          initializer.getDescendantsOfKind(SyntaxKind.CallExpression).length >
+            0)
+      );
+    });
+
   const facts: {
     -readonly [K in keyof AssertionSubjectFacts]: AssertionSubjectFacts[K];
   } = {
@@ -209,6 +226,7 @@ function subjectFacts(node: Node): AssertionSubjectFacts {
     propertyPath,
     baseCallee: Node.isCallExpression(base) ? calleeBaseName(base) : null,
     baseIdentifier: Node.isIdentifier(base) ? base.getText() : null,
+    baseIdentifierFromCall,
   };
   if (literal.ok) {
     facts.literalValue = literal.value;

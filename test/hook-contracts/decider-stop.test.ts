@@ -9,11 +9,16 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runHook } from "../../src/hooks/entry.js";
 import { coreHookDecider } from "../../src/hooks/decider.js";
-import { buildReceipt, writeReceipt } from "../../src/evidence/receipts.js";
+import {
+  buildReceipt,
+  stateDirectory,
+  writeReceipt,
+} from "../../src/evidence/receipts.js";
 import type { RunnerInvocation } from "../../src/evidence/runners/vitest.js";
 import { snapshotRepository } from "../../src/repository/git.js";
+import { runGit } from "../../src/repository/git.js";
 import { fingerprintDiff } from "../../src/repository/fingerprint.js";
-import { stripOwnState } from "../../src/evidence/verdict.js";
+import { loadTrust, stripOwnState } from "../../src/evidence/verdict.js";
 import {
   initGitRepo,
   stewardConfig,
@@ -36,7 +41,7 @@ beforeEach(async () => {
   // Material declared obligation via discovered (inert) repository config.
   await writeConfigFile(
     repo,
-    ".test-steward/config.json",
+    ".detestify/config.json",
     stewardConfig({
       mode: "balanced",
       critical_paths: [
@@ -94,14 +99,15 @@ describe("default decider on Stop (verify-change core wiring)", () => {
       repoRoot: repo,
     });
     expect(second.exitCode).toBe(0);
-    expect(second.stdout ?? "").not.toContain('"block"');
-    expect(second.stdout ?? "").toContain("already granted");
+    expect(second.stderr).toBeNull();
+    expect(second.stdout).toContain("detestify verify-change");
+    expect(second.stdout).toContain("DECLARED_CRITICAL_PATH_CHANGED");
   }, 30_000);
 
   it("never blocks in advisory mode for the same gap", async () => {
     await writeConfigFile(
       repo,
-      ".test-steward/config.json",
+      ".detestify/config.json",
       stewardConfig({
         mode: "advisory",
         critical_paths: [
@@ -120,10 +126,55 @@ describe("default decider on Stop (verify-change core wiring)", () => {
     expect(result.stdout ?? "").not.toContain('"block"');
   }, 30_000);
 
-  it("allows when a passing receipt matches the current diff fingerprint", async () => {
+  it("does not suggest a runtime test when TypeScript emits the same JavaScript", async () => {
+    await writeConfigFile(
+      repo,
+      ".detestify/config.json",
+      stewardConfig({
+        mode: "advisory",
+        critical_paths: [],
+        declared_obligations: [],
+      }),
+    );
+    const source = path.join(repo, "src", "payments", "charge.ts");
+    await writeFile(
+      source,
+      "export function charge(cents: number): { cents: number } { return { cents }; }\n",
+      "utf8",
+    );
+    await runGit(repo, ["add", "src/payments/charge.ts"]);
+    await runGit(repo, ["commit", "-q", "-m", "set typed return"]);
+    await writeFile(
+      source,
+      "export function charge(cents: number): { readonly cents: number } { return { cents }; }\n",
+      "utf8",
+    );
+
+    const decision = await coreHookDecider({
+      schema_version: "1.0",
+      host: "claude",
+      host_version: null,
+      event: "turn_stop",
+      session_id: "s-runtime-equivalent",
+      turn_id: null,
+      cwd: repo,
+      repo_root: repo,
+      tool: { name: null, input_ref: null, result_ref: null },
+      loop_guard: { already_remediated: false, attempt: 0 },
+      raw_payload_ref: null,
+    });
+    expect(decision).toMatchObject({
+      action: "allow",
+      reason_code: "RUNTIME_EMIT_UNCHANGED",
+    });
+    expect(decision.summary).toContain("identical JavaScript");
+  }, 30_000);
+
+  it("allows only when a passing receipt matches the current diff and policy fingerprints", async () => {
     const fingerprint = (
       await fingerprintDiff(stripOwnState(await snapshotRepository(repo)))
     ).fingerprint;
+    const policyFingerprint = (await loadTrust(repo)).policyFingerprint;
     const invocation: RunnerInvocation = {
       runner: "vitest",
       version: "3.2.7",
@@ -152,7 +203,7 @@ describe("default decider on Stop (verify-change core wiring)", () => {
       },
     };
     await writeReceipt(
-      path.join(repo, ".test-steward"),
+      stateDirectory(repo),
       buildReceipt({
         invocation,
         repoRoot: repo,
@@ -160,8 +211,10 @@ describe("default decider on Stop (verify-change core wiring)", () => {
         headRevision: null,
         timeoutMs: 120_000,
         envKeys: [],
+        policyFingerprint,
         diffFingerprintStart: fingerprint,
         diffFingerprintEnd: fingerprint,
+        selectionComplete: true,
       }),
     );
 
@@ -169,7 +222,25 @@ describe("default decider on Stop (verify-change core wiring)", () => {
       repoRoot: repo,
     });
     // allow translates to no decision output on Claude.
-    expect(result).toEqual({ stdout: null, exitCode: 0 });
+    expect(result).toEqual({ stdout: null, stderr: null, exitCode: 0 });
+
+    const configPath = path.join(repo, ".detestify", "config.json");
+    await writeFile(
+      configPath,
+      (await readFile(configPath, "utf8")).replace(
+        "exactly once per request",
+        "at most once per request",
+      ),
+      "utf8",
+    );
+    const changedPolicy = await runHook(
+      ["claude", "turn_stop"],
+      stopPayload("s-3-policy"),
+      { repoRoot: repo },
+    );
+    expect(JSON.parse(changedPolicy.stdout ?? "{}")).toMatchObject({
+      decision: "block",
+    });
   }, 30_000);
 
   it("a stale or fingerprint-mismatched receipt does not stand in for verification", async () => {
@@ -194,6 +265,96 @@ describe("default decider on Stop (verify-change core wiring)", () => {
         entry.includes("No test was executed from the hook"),
       ),
     ).toBe(true);
+  }, 30_000);
+
+  it("does not let an unrelated changed test suppress a boundary gap", async () => {
+    await writeConfigFile(
+      repo,
+      ".detestify/config.json",
+      stewardConfig({
+        mode: "strict",
+        critical_paths: [],
+        declared_obligations: [],
+        policy: {
+          elevated_rule_ids: ["CHG-006"],
+          allow_delete_candidates: false,
+        },
+      }),
+    );
+    await writeFile(
+      path.join(repo, "package.json"),
+      '{"name":"fixture","version":"1.0.0"}\n',
+      "utf8",
+    );
+    await mkdir(path.join(repo, "test"), { recursive: true });
+    await writeFile(
+      path.join(repo, "test", "unrelated.test.ts"),
+      'import assert from "node:assert/strict";\nassert.equal(1, 1);\n',
+      "utf8",
+    );
+
+    const decision = await coreHookDecider({
+      schema_version: "1.0",
+      host: "claude",
+      host_version: null,
+      event: "turn_stop",
+      session_id: "s-unrelated-test",
+      turn_id: null,
+      cwd: repo,
+      repo_root: repo,
+      tool: { name: null, input_ref: null, result_ref: null },
+      loop_guard: { already_remediated: false, attempt: 0 },
+      raw_payload_ref: null,
+    });
+    expect(decision.action).toBe("request_remediation");
+    expect(decision.reason_code).toBe("CHG_006");
+  }, 30_000);
+
+  it("does not load import analysis or treat an unchanged import as sufficient evidence", async () => {
+    await mkdir(path.join(repo, "test"), { recursive: true });
+    const testPath = path.join(repo, "test", "charge.test.ts");
+    await writeFile(
+      testPath,
+      'import { charge } from "../src/payments/charge.js";\nvoid charge;\n',
+      "utf8",
+    );
+    await runGit(repo, ["add", "test/charge.test.ts"]);
+    await runGit(repo, ["commit", "-q", "-m", "add charge evidence"]);
+
+    const unchanged = await coreHookDecider({
+      schema_version: "1.0",
+      host: "claude",
+      host_version: null,
+      event: "turn_stop",
+      session_id: "s-existing-evidence",
+      turn_id: null,
+      cwd: repo,
+      repo_root: repo,
+      tool: { name: null, input_ref: null, result_ref: null },
+      loop_guard: { already_remediated: false, attempt: 0 },
+      raw_payload_ref: null,
+    });
+    expect(unchanged.action).toBe("request_remediation");
+    expect(unchanged.summary).not.toContain("sufficient");
+    expect(unchanged.remediation).not.toContain("test/charge.test.ts");
+    expect(unchanged.remediation).toContain("Add narrow-scope");
+
+    await writeFile(testPath, `${await readFile(testPath, "utf8")}\n`, "utf8");
+    const changed = await coreHookDecider({
+      schema_version: "1.0",
+      host: "claude",
+      host_version: null,
+      event: "turn_stop",
+      session_id: "s-existing-evidence-changed",
+      turn_id: null,
+      cwd: repo,
+      repo_root: repo,
+      tool: { name: null, input_ref: null, result_ref: null },
+      loop_guard: { already_remediated: false, attempt: 0 },
+      raw_payload_ref: null,
+    });
+    expect(changed.action).toBe("request_remediation");
+    expect(changed.reason_code).toBe("DECLARED_CRITICAL_PATH_CHANGED");
   }, 30_000);
 
   it("non-gating lifecycle events always allow", async () => {

@@ -41,8 +41,10 @@ import {
 } from "../../analysis/tests.js";
 import {
   analyzeTypeScript,
+  hasEquivalentRuntimeEmit,
   type TypeScriptAnalysis,
 } from "../../analysis/typescript.js";
+import { runtimeEquivalentTypeScriptPaths } from "../../analysis/runtime-equivalence.js";
 import {
   classifyChangeSet,
   type ChangeClassification,
@@ -71,14 +73,20 @@ import {
   type ReportChange,
   type ReportChangeClass,
 } from "../../core/reports/index.js";
+import {
+  globToRegExp,
+  loadTrust,
+  type CriticalPathRule,
+  type DeclaredObligation,
+} from "../../evidence/verdict.js";
 
 /**
  * Exit with a documented plan exit code. `main.ts` passes the exit code of a
- * CommanderError carrying the "test-steward.notImplemented" marker through
+ * CommanderError carrying the "detestify.notImplemented" marker through
  * unchanged; that marker string is the scaffold's only pass-through channel.
  */
 function exitWith(code: ExitCode, message: string): never {
-  throw new CommanderError(code, "test-steward.notImplemented", message);
+  throw new CommanderError(code, "detestify.notImplemented", message);
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +96,8 @@ function exitWith(code: ExitCode, message: string): never {
 interface PlanConfig {
   readonly mode: PolicyMode;
   readonly elevatedRuleIds: readonly string[];
+  readonly criticalPaths: readonly CriticalPathRule[];
+  readonly declaredObligations: readonly DeclaredObligation[];
   readonly baseRevision: string | undefined;
   readonly repositoryCommandsTrusted: boolean;
 }
@@ -95,6 +105,8 @@ interface PlanConfig {
 const DEFAULT_CONFIG: PlanConfig = {
   mode: "advisory",
   elevatedRuleIds: [],
+  criticalPaths: [],
+  declaredObligations: [],
   baseRevision: undefined,
   repositoryCommandsTrusted: false,
 };
@@ -103,48 +115,14 @@ async function loadInertConfig(
   repositoryRoot: string,
   configPath: string,
 ): Promise<PlanConfig> {
-  const relative = path.relative(repositoryRoot, path.resolve(configPath));
-  if (
-    relative === "" ||
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    throw new Error(`Path escapes repository root: ${configPath}`);
-  }
-  const contained = await realpathContained(
-    repositoryRoot,
-    relative.split(path.sep).join("/"),
-  );
-  const stat = await lstat(contained);
-  if (!stat.isFile()) {
-    throw new Error(`Configuration is not a regular file: ${configPath}`);
-  }
-  if (stat.size > 1_048_576) {
-    throw new Error(`Configuration exceeds 1 MiB: ${configPath}`);
-  }
-  if (path.extname(contained) !== ".json") {
-    throw new Error(`Configuration must be inert JSON: ${configPath}`);
-  }
-  const document: unknown = JSON.parse(await readFile(contained, "utf8"));
-  const validate = await getValidator("config.schema.json");
-  if (!validate(document)) {
-    throw new Error(
-      `Configuration failed schema validation: ${formatSchemaErrors(validate.errors)}`,
-    );
-  }
-  const config = document as {
-    mode: PolicyMode;
-    base_revision?: string | null;
-    trusted_operations: { run_repository_commands: boolean };
-    policy: { elevated_rule_ids: readonly string[] };
-  };
+  const config = await loadTrust(repositoryRoot, configPath);
   return {
     mode: config.mode,
-    elevatedRuleIds: config.policy.elevated_rule_ids,
-    baseRevision: config.base_revision ?? undefined,
-    repositoryCommandsTrusted:
-      config.trusted_operations.run_repository_commands,
+    elevatedRuleIds: config.elevatedRuleIds,
+    criticalPaths: config.criticalPaths,
+    declaredObligations: config.declaredObligations,
+    baseRevision: config.baseRevision,
+    repositoryCommandsTrusted: config.runRepositoryCommands,
   };
 }
 
@@ -174,9 +152,7 @@ function buildExclusions(
     }
   }
   return (rel) =>
-    rel === ".test-steward" ||
-    rel.startsWith(".test-steward/") ||
-    exact.has(rel);
+    rel === ".detestify" || rel.startsWith(".detestify/") || exact.has(rel);
 }
 
 function filterSnapshot(
@@ -298,6 +274,7 @@ async function detectStatefulLifecycle(
 
 const RULE_CHANGE_CLASS: Readonly<Record<string, ReportChangeClass>> = {
   "CHG-001": "documentation",
+  "CHG-002": "refactor",
   "CHG-004": "behavior",
   "CHG-005": "bugfix",
   "CHG-006": "boundary",
@@ -312,6 +289,7 @@ const DEPENDENCY_MANIFEST_PATTERN =
 
 const REASON_CODES: Readonly<Record<string, string>> = {
   "CHG-001": "DOC_ONLY_NO_BEHAVIOR",
+  "CHG-002": "RUNTIME_EMIT_UNCHANGED",
   "CHG-004": "NEW_PURE_BEHAVIOR",
   "CHG-006": "BOUNDARY_DEPENDENCY_CHANGED",
   "CHG-007": "SCHEMA_MIGRATION_CHANGED",
@@ -324,6 +302,8 @@ const REASON_CODES: Readonly<Record<string, string>> = {
 const RULE_SUMMARIES: Readonly<Record<string, string>> = {
   "CHG-001":
     "Only prose documentation changed; no persistent test is supported.",
+  "CHG-002":
+    "The TypeScript change emits identical JavaScript; no persistent runtime test is supported.",
   "CHG-004":
     "New source files add behavior without boundary facts; focused behavior evidence is recommended.",
   "CHG-006":
@@ -345,8 +325,10 @@ interface PlannedDetermination {
   readonly reasonCode: string;
   readonly summary: string;
   readonly rationale: string;
-  /** Specialized failure class replacing the rule catalog default. */
-  readonly failureClass?: string;
+  readonly placementCandidate?: {
+    readonly newTestPath: string;
+    readonly existingTestPath: string;
+  };
 }
 
 function ruleContract(ruleId: string): string {
@@ -450,11 +432,11 @@ export async function run(options: CommandOptions): Promise<void> {
   limitations.push(...shape.limitations);
   if (shape.runner === "none") {
     limitations.push(
-      "No supported test runner (Vitest or Jest) marker was found; runner-aware advice is unavailable.",
+      "No supported test runner (Vitest, Jest, or node:test) marker was found; runner-aware advice is unavailable.",
     );
   } else if (shape.runner === "unknown") {
     limitations.push(
-      "Multiple test runner markers conflict; runner selection is ambiguous.",
+      "Test runner markers conflict or include unsupported tooling; runner selection is ambiguous.",
     );
   }
 
@@ -468,6 +450,13 @@ export async function run(options: CommandOptions): Promise<void> {
       /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(file) && !isTestFilePath(file),
   );
   const changedTests = changedPaths.filter((file) => isTestFilePath(file));
+  const newStandaloneTests = changedFiles
+    .filter(
+      (file) =>
+        (file.status === "added" || file.status === "untracked") &&
+        isTestFilePath(file.path),
+    )
+    .map((file) => file.path);
 
   const boundaries = await analyzeBoundaries({
     repoRoot: analyzed.root,
@@ -476,6 +465,10 @@ export async function run(options: CommandOptions): Promise<void> {
   const lifecycleFacts = await detectStatefulLifecycle(
     analyzed.root,
     changedSource,
+  );
+  const runtimeEquivalentPaths = await runtimeEquivalentTypeScriptPaths(
+    analyzed,
+    hasEquivalentRuntimeEmit,
   );
 
   let typescript: TypeScriptAnalysis | null = null;
@@ -519,6 +512,7 @@ export async function run(options: CommandOptions): Promise<void> {
   const classification = classifyChangeSet({
     changedFiles,
     boundaries,
+    runtimeEquivalentPaths,
   });
   limitations.push(...classification.limitations);
 
@@ -530,6 +524,10 @@ export async function run(options: CommandOptions): Promise<void> {
       covered: entry.covered,
     })),
     changedSource,
+    changedTests,
+    newStandaloneTests,
+    changedPaths.filter((file) => !isTestFilePath(file)),
+    config,
   );
 
   const decisions: Decision[] = [];
@@ -542,6 +540,7 @@ export async function run(options: CommandOptions): Promise<void> {
       boundaries.boundaries,
       lifecycleFacts,
       nearbyTests,
+      runtimeEquivalentPaths,
       observedAt,
     ),
   );
@@ -573,16 +572,22 @@ export async function run(options: CommandOptions): Promise<void> {
         ...new Set([...evaluation.decision.evidence_ids, "ev-git-diff"]),
       ],
     };
-    const decision =
-      plan.failureClass !== undefined && withDiffEvidence.target.scope !== null
-        ? {
-            ...withDiffEvidence,
-            target: {
-              ...withDiffEvidence.target,
-              failure_class: plan.failureClass,
-            },
-          }
-        : withDiffEvidence;
+    let decision = withDiffEvidence;
+    if (
+      plan.placementCandidate !== undefined &&
+      decision.outcome === "EXISTING_TEST_UPDATE_CANDIDATE"
+    ) {
+      const { newTestPath, existingTestPath } = plan.placementCandidate;
+      decision = {
+        ...decision,
+        summary: `Update ${existingTestPath} before keeping ${newTestPath} as a separate regression file.`,
+        rationale: `${decision.rationale} ${existingTestPath} already imports the changed source and is the adjacent suite to extend first.`,
+        limitations: [
+          ...decision.limitations,
+          `Static imports identify ${existingTestPath} as a consolidation target for new ${newTestPath}; they do not show whether the new file covers a distinct failure mechanism, so retain it when it does.`,
+        ],
+      };
+    }
     decisions.push(decision);
     limitations.push(...decision.limitations);
   }
@@ -691,12 +696,7 @@ export async function run(options: CommandOptions): Promise<void> {
       ? path.resolve(options.report)
       : jsonOnStdout
         ? null
-        : path.join(
-            analyzed.root,
-            ".test-steward",
-            "reports",
-            `${reportId}.json`,
-          );
+        : path.join(analyzed.root, ".detestify", "reports", `${reportId}.json`);
   const jsonTarget =
     options.json !== undefined && !jsonOnStdout
       ? path.resolve(options.json)
@@ -737,6 +737,10 @@ function buildDeterminations(
   lifecycleFacts: readonly LifecycleFact[],
   nearbyTests: readonly { testPath: string; covered: readonly string[] }[],
   changedSource: readonly string[],
+  changedTests: readonly string[],
+  newStandaloneTests: readonly string[],
+  changedNonTests: readonly string[],
+  config: PlanConfig,
 ): PlannedDetermination[] {
   const planned: PlannedDetermination[] = [];
   const lifecycle = lifecycleFacts[0];
@@ -747,23 +751,15 @@ function buildDeterminations(
       continue;
     }
     const fallback = item.provenance === "inferred" ? "inferred" : "derived";
-    const rule = POLICY_RULES_BY_ID.get(item.ruleId);
-    const existingTest =
-      rule?.target?.scope === "narrow"
-        ? nearbyTests.find((entry) =>
-            entry.covered.some((covered) => item.paths.includes(covered)),
-          )?.testPath
-        : undefined;
     planned.push({
       det: {
         ruleId: item.ruleId,
         applicability: "applies",
         statement: item.rationale,
         paths: item.paths,
-        fallbackProvenance: fallback,
-        ...(existingTest !== undefined
-          ? { existingTestPath: existingTest }
-          : {}),
+        ...(item.provenance === "observed"
+          ? { observedRefs: item.paths }
+          : { fallbackProvenance: fallback }),
       },
       reasonCode:
         REASON_CODES[item.ruleId] ?? `${item.ruleId.replace("-", "_")}_APPLIES`,
@@ -790,11 +786,64 @@ function buildDeterminations(
         paths,
         fallbackProvenance: "derived",
         evidenceGap: "material",
+        resolvedTarget: {
+          scope: "integration",
+          purpose: "regression",
+          technique: "example",
+          cadence: "pull_request",
+          failure_class: lifecycle.failureClass,
+        },
       },
       reasonCode: "STATEFUL_LIFECYCLE_BOUNDARY",
       summary: `Stateful ${lifecycle.first}/${lifecycle.second} lifecycle changed in ${lifecycle.file}; integration evidence at this boundary is recommended for the failure path.`,
       rationale: `${statement}${ruleContract("CHG-006")}`,
-      failureClass: lifecycle.failureClass,
+    });
+  }
+
+  const declaredIds = new Set(
+    config.declaredObligations.map((obligation) => obligation.id),
+  );
+  for (const criticalPath of config.criticalPaths) {
+    const matcher = globToRegExp(criticalPath.pattern);
+    const matched = changedNonTests.filter((file) => matcher.test(file));
+    if (matched.length === 0) {
+      continue;
+    }
+    const declaredRefs = criticalPath.obligation_ids.filter((id) =>
+      declaredIds.has(id),
+    );
+    if (declaredRefs.length === 0) {
+      continue;
+    }
+    const matchingPlans = planned
+      .map((plan, index) => ({ plan, index }))
+      .filter(({ plan }) => plan.det.paths.some((file) => matcher.test(file)));
+    if (matchingPlans.length > 0) {
+      for (const { plan, index } of matchingPlans) {
+        planned[index] = {
+          ...plan,
+          det: {
+            ...plan.det,
+            declaredRefs: [
+              ...new Set([...(plan.det.declaredRefs ?? []), ...declaredRefs]),
+            ],
+          },
+        };
+      }
+      continue;
+    }
+    planned.push({
+      det: {
+        ruleId: "TST-001",
+        applicability: "applies",
+        statement: `Changed paths match declared critical path ${criticalPath.pattern}.`,
+        paths: matched,
+        declaredRefs,
+        evidenceGap: "material",
+      },
+      reasonCode: "DECLARED_CRITICAL_PATH_CHANGED",
+      summary: `Declared critical path ${criticalPath.pattern} changed without verified evidence.`,
+      rationale: `The inert configuration associates ${criticalPath.pattern} with a declared test obligation.${ruleContract("TST-001")}`,
     });
   }
 
@@ -815,7 +864,75 @@ function buildDeterminations(
     });
   }
 
-  return planned;
+  const changedTestSet = new Set(changedTests);
+  const newStandaloneTestSet = new Set(newStandaloneTests);
+  return planned.map((plan) => {
+    const relevantTests = nearbyTests
+      .filter((entry) =>
+        entry.covered.some((covered) => plan.det.paths.includes(covered)),
+      )
+      .map((entry) => entry.testPath)
+      .sort();
+    const placementCandidate = [...newStandaloneTestSet]
+      .sort()
+      .flatMap((newTestPath) =>
+        relevantTests
+          .filter(
+            (existingTestPath) =>
+              existingTestPath !== newTestPath &&
+              path.posix.dirname(existingTestPath) ===
+                path.posix.dirname(newTestPath),
+          )
+          .map((existingTestPath) => ({ newTestPath, existingTestPath })),
+      )
+      .sort(
+        (a, b) =>
+          a.existingTestPath.localeCompare(b.existingTestPath) ||
+          a.newTestPath.localeCompare(b.newTestPath),
+      )[0];
+    if (placementCandidate !== undefined) {
+      return {
+        ...plan,
+        det: {
+          ...plan.det,
+          existingTestPath: placementCandidate.existingTestPath,
+          evidenceGap: "partial",
+        },
+        placementCandidate,
+      };
+    }
+    const changedTest = relevantTests.find(
+      (test) => changedTestSet.has(test) && !newStandaloneTestSet.has(test),
+    );
+    if (changedTest !== undefined) {
+      return {
+        ...plan,
+        det: {
+          ...plan.det,
+          existingTestPath: changedTest,
+          evidenceGap: "partial",
+        },
+      };
+    }
+    const unchangedTest = relevantTests.find(
+      (test) => !changedTestSet.has(test),
+    );
+    if (unchangedTest !== undefined) {
+      return {
+        ...plan,
+        det: {
+          ...plan.det,
+          existingTestPath: unchangedTest,
+          evidenceGap: "partial",
+          limitations: [
+            ...(plan.det.limitations ?? []),
+            `Direct import reachability identifies ${unchangedTest} as the existing test to inspect or update; it does not prove that the test detects the changed failure mechanism.`,
+          ],
+        },
+      };
+    }
+    return plan;
+  });
 }
 
 function manualDecision(input: {
@@ -917,6 +1034,7 @@ function astEvidence(
     testFile: TestInventory["testFiles"][number];
     covered: readonly string[];
   }[],
+  runtimeEquivalentPaths: readonly string[],
   observedAt: string,
 ): EvidenceRecord {
   const findings: EvidenceRecord["findings"][number][] = [];
@@ -947,6 +1065,13 @@ function astEvidence(
           : `never calls .${fact.second}(`
       }; the failure path must ${fact.second} the ${fact.first}.`,
       paths: [fact.file],
+    });
+  }
+  for (const file of runtimeEquivalentPaths) {
+    findings.push({
+      code: "RUNTIME_EMIT_EQUIVALENT",
+      summary: `${file} emits byte-identical JavaScript before and after the change; type-level compatibility still requires the repository typecheck.`,
+      paths: [file],
     });
   }
   for (const entry of nearbyTests) {
@@ -984,6 +1109,7 @@ function astEvidence(
       mode: typescript?.capabilities.mode ?? "unavailable",
       boundary_facts: boundaries.length,
       stateful_lifecycles: lifecycleFacts.length,
+      runtime_emit_equivalent_files: runtimeEquivalentPaths.length,
       nearby_tests: nearbyTests.length,
     },
     gate_trust: "eligible",

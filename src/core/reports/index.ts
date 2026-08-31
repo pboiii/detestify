@@ -9,15 +9,7 @@
 // never through a symlink, and repository-derived text is sanitized before it
 // reaches the terminal (TM-011).
 
-import {
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  realpath,
-  rename,
-  rm,
-} from "node:fs/promises";
+import { lstat, mkdir, open, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { formatSchemaErrors, getValidator } from "../schemas/index.js";
@@ -27,6 +19,7 @@ import type {
   EvidenceRecord,
   ObligationCandidate,
 } from "../model/index.js";
+import { readContainedRegularFile } from "../../repository/paths.js";
 
 // ---------------------------------------------------------------------------
 // Report envelope types (report.schema.json mirror)
@@ -65,7 +58,7 @@ export interface ReportChange {
 }
 
 export interface ReportCapabilities {
-  readonly runner: "vitest" | "jest" | "unknown" | "none";
+  readonly runner: "vitest" | "jest" | "node:test" | "unknown" | "none";
   readonly ast: "type_resolved" | "syntactic_only" | "unavailable";
   readonly coverage: "available" | "unavailable" | "not_requested";
   readonly mutation: "available" | "unavailable" | "not_requested";
@@ -97,12 +90,22 @@ export interface PlanReport {
 // Assembly
 // ---------------------------------------------------------------------------
 
-/** Most material change outcome first; the terminal summary shows index 0. */
-const OUTCOME_SEVERITY: Readonly<Record<string, number>> = {
-  NEW_TEST_CANDIDATE: 0,
-  EXISTING_TEST_UPDATE_CANDIDATE: 1,
-  INSUFFICIENT_EVIDENCE: 2,
-  NO_TEST_SUPPORTED: 3,
+/** Minimum sufficient evidence cost within the same material obligation. */
+const OUTCOME_COST: Readonly<Record<string, number>> = {
+  NO_TEST_SUPPORTED: 0,
+  EXISTING_EVIDENCE_SUFFICIENT: 1,
+  EXISTING_TEST_UPDATE_CANDIDATE: 2,
+  NEW_TEST_CANDIDATE: 3,
+  INSUFFICIENT_EVIDENCE: 4,
+};
+
+const MATERIALITY_PRIORITY: Readonly<Record<string, number>> = {
+  T4: 0,
+  T3: 1,
+  T2: 2,
+  T1: 3,
+  T0: 4,
+  TU: 5,
 };
 
 function byId(left: { id: string }, right: { id: string }): number {
@@ -125,15 +128,29 @@ export interface BuildPlanReportInput {
 
 /**
  * Assemble the report envelope with deterministic ordering: decisions by
- * outcome severity then id, evidence and obligations by id, limitations
- * deduplicated in first-seen order. Key order is fixed by construction.
+ * obligation materiality, minimum sufficient evidence cost, then id;
+ * evidence and obligations by id; limitations deduplicated in first-seen
+ * order. Key order is fixed by construction.
  */
 export function buildPlanReport(input: BuildPlanReportInput): PlanReport {
+  const obligations = new Map(
+    input.obligations.map((obligation) => [obligation.id, obligation]),
+  );
+  const materiality = (decision: Decision): number =>
+    Math.min(
+      ...decision.obligation_candidate_ids.map(
+        (id) =>
+          MATERIALITY_PRIORITY[obligations.get(id)?.materiality.tier ?? "TU"] ??
+          9,
+      ),
+      9,
+    );
   const decisions = [...input.decisions].sort((left, right) => {
-    const severity =
-      (OUTCOME_SEVERITY[left.outcome] ?? 9) -
-      (OUTCOME_SEVERITY[right.outcome] ?? 9);
-    return severity !== 0 ? severity : byId(left, right);
+    const obligationPriority = materiality(left) - materiality(right);
+    if (obligationPriority !== 0) return obligationPriority;
+    const cost =
+      (OUTCOME_COST[left.outcome] ?? 9) - (OUTCOME_COST[right.outcome] ?? 9);
+    return cost !== 0 ? cost : byId(left, right);
   });
   return {
     schema_version: "1.0",
@@ -200,6 +217,15 @@ export function renderPlanSummary(
   }
   if (top.target.failure_class !== null) {
     lines.push(`Failure class: ${sanitizeTerminal(top.target.failure_class)}`);
+  }
+
+  const unresolved = report.decisions.filter(
+    (decision) => decision.outcome === "INSUFFICIENT_EVIDENCE",
+  );
+  if (unresolved.length > 0 && top.outcome !== "INSUFFICIENT_EVIDENCE") {
+    lines.push(
+      `Unresolved: ${unresolved.length} decision${unresolved.length === 1 ? " needs" : "s need"} more evidence — ${sanitizeTerminal(unresolved[0]?.summary ?? "see JSON report")}`,
+    );
   }
 
   const nearby = report.evidence
@@ -336,6 +362,8 @@ export interface StaleReportCheck {
   readonly stale: boolean;
 }
 
+const STALE_REPORT_SIZE_LIMIT = 8 * 1024 * 1024;
+
 /**
  * Stale-fingerprint detection (M3, TM-015): a report already present at the
  * target that is bound to a different diff fingerprint proves the tree
@@ -345,11 +373,27 @@ export async function detectStaleReport(
   target: string,
   currentFingerprint: string,
 ): Promise<StaleReportCheck> {
-  let source: string;
+  const absolute = path.resolve(target);
   try {
-    source = await readFile(path.resolve(target), "utf8");
+    const stat = await lstat(absolute);
+    if (!stat.isFile()) {
+      return { exists: true, previousFingerprint: null, stale: false };
+    }
   } catch {
     return { exists: false, previousFingerprint: null, stale: false };
+  }
+
+  let source: string;
+  try {
+    source = (
+      await readContainedRegularFile(
+        path.dirname(absolute),
+        path.basename(absolute),
+        STALE_REPORT_SIZE_LIMIT,
+      )
+    ).toString("utf8");
+  } catch {
+    return { exists: true, previousFingerprint: null, stale: false };
   }
   try {
     const document = JSON.parse(source) as {

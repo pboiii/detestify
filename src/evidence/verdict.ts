@@ -4,7 +4,8 @@
 // only from an explicitly passed configuration file; configuration discovered
 // inside the repository is inert policy data and can never grant execution.
 
-import { lstat, readFile, realpath } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { realpath } from "node:fs/promises";
 import path from "node:path";
 import { formatSchemaErrors, getValidator } from "../core/schemas/index.js";
 import type {
@@ -21,8 +22,13 @@ import {
   type RuleDetermination,
 } from "../core/policy/index.js";
 import { classifyChangeSet } from "../analysis/change-classifier.js";
-import { isTestFilePath } from "../analysis/tests.js";
+import { isTestFilePath } from "../analysis/test-path.js";
 import type { RepositorySnapshot } from "../repository/git.js";
+import {
+  normalizeRepositoryPath,
+  PathContainmentError,
+  readContainedRegularFile,
+} from "../repository/paths.js";
 
 /** Errors whose message prefix the CLI maps to CONFIG_INVALID. */
 export class ConfigInvalidError extends Error {
@@ -47,34 +53,50 @@ export interface DeclaredObligation {
 
 export interface LoadedTrust {
   readonly mode: PolicyMode;
+  readonly baseRevision: string | undefined;
   readonly elevatedRuleIds: readonly string[];
   readonly criticalPaths: readonly CriticalPathRule[];
   readonly declaredObligations: readonly DeclaredObligation[];
-  /** True only when an explicitly passed configuration grants execution. */
+  /** True only when an explicit config grants commands, config evaluation, and network. */
   readonly runRepositoryCommands: boolean;
   /** True only when an explicitly passed configuration requests mutation. */
   readonly mutationRequested: boolean;
   /** Repository-relative configuration path that was read, or null. */
   readonly configPath: string | null;
+  /** SHA-256 of the validated config bytes, or the stable default policy. */
+  readonly policyFingerprint: string;
   readonly explicit: boolean;
   readonly limitations: readonly string[];
 }
 
+function policyFingerprint(source: string | Buffer): string {
+  return `sha256:${createHash("sha256").update(source).digest("hex")}`;
+}
+
+const DEFAULT_POLICY_FINGERPRINT = policyFingerprint(
+  '{"mode":"advisory","elevatedRuleIds":[],"criticalPaths":[],"declaredObligations":[]}',
+);
+
 const UNTRUSTED_DEFAULTS: Omit<LoadedTrust, "limitations"> = {
   mode: "advisory",
+  baseRevision: undefined,
   elevatedRuleIds: [],
   criticalPaths: [],
   declaredObligations: [],
   runRepositoryCommands: false,
   mutationRequested: false,
   configPath: null,
+  policyFingerprint: DEFAULT_POLICY_FINGERPRINT,
   explicit: false,
 };
 
 interface RawConfig {
   readonly mode: PolicyMode;
+  readonly base_revision?: string | null;
   readonly trusted_operations: {
     readonly run_repository_commands: boolean;
+    readonly evaluate_repository_config: boolean;
+    readonly network_access: boolean;
     readonly mutation: boolean;
   };
   readonly critical_paths: readonly CriticalPathRule[];
@@ -87,34 +109,34 @@ const CONFIG_SIZE_LIMIT = 1_048_576;
 async function readValidatedConfig(
   repoRoot: string,
   configPath: string,
-): Promise<{ raw: RawConfig; relative: string }> {
+): Promise<{ raw: RawConfig; relative: string; policyFingerprint: string }> {
   const root = await realpath(repoRoot);
-  const resolved = await realpath(path.resolve(root, configPath));
-  const relative = path.relative(root, resolved);
-  if (
-    relative === "" ||
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    throw new ConfigInvalidError(
-      `path escapes the repository root: ${configPath}`,
-    );
-  }
-  const stat = await lstat(resolved);
-  if (!stat.isFile()) {
-    throw new ConfigInvalidError(`is not a regular file: ${configPath}`);
-  }
-  if (stat.size > CONFIG_SIZE_LIMIT) {
-    throw new ConfigInvalidError(`exceeds 1 MiB: ${configPath}`);
+  let relative: string;
+  let resolved: string;
+  try {
+    resolved = await realpath(path.resolve(root, configPath));
+    relative = normalizeRepositoryPath(path.relative(root, resolved));
+  } catch (error) {
+    if (error instanceof PathContainmentError) {
+      throw new ConfigInvalidError(error.message);
+    }
+    throw error;
   }
   if (path.extname(resolved) !== ".json") {
     throw new ConfigInvalidError(`must be inert JSON (.json): ${configPath}`);
   }
-  const source = await readFile(resolved, "utf8");
+  let source: Buffer;
+  try {
+    source = await readContainedRegularFile(root, relative, CONFIG_SIZE_LIMIT);
+  } catch (error) {
+    if (error instanceof PathContainmentError) {
+      throw new ConfigInvalidError(error.message);
+    }
+    throw error;
+  }
   let document: unknown;
   try {
-    document = JSON.parse(source);
+    document = JSON.parse(source.toString("utf8"));
   } catch (error) {
     throw new ConfigInvalidError(
       `is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
@@ -126,15 +148,19 @@ async function readValidatedConfig(
       `failed schema validation: ${formatSchemaErrors(validate.errors)}`,
     );
   }
-  return { raw: document as RawConfig, relative };
+  return {
+    raw: document as RawConfig,
+    relative,
+    policyFingerprint: policyFingerprint(source),
+  };
 }
 
-export const DISCOVERED_CONFIG_PATH = ".test-steward/config.json";
+export const DISCOVERED_CONFIG_PATH = ".detestify/config.json";
 
 /**
  * Load the trust and policy inputs for one run. An explicit config path is
  * validated strictly and may grant execution trust; a config discovered at
- * `.test-steward/config.json` supplies inert policy data only — its
+ * `.detestify/config.json` supplies inert policy data only — its
  * `trusted_operations` are ignored because repository-controlled files must
  * never grant command execution (TM-003).
  */
@@ -143,31 +169,49 @@ export async function loadTrust(
   explicitConfigPath?: string,
 ): Promise<LoadedTrust> {
   if (explicitConfigPath !== undefined) {
-    const { raw, relative } = await readValidatedConfig(
+    const { raw, relative, policyFingerprint } = await readValidatedConfig(
       repoRoot,
       explicitConfigPath,
     );
+    const trustedOperations = raw.trusted_operations;
+    const runRepositoryCommands =
+      trustedOperations.run_repository_commands &&
+      trustedOperations.evaluate_repository_config &&
+      trustedOperations.network_access;
+    const partialRunnerGrant =
+      !runRepositoryCommands &&
+      (trustedOperations.run_repository_commands ||
+        trustedOperations.evaluate_repository_config ||
+        trustedOperations.network_access);
     return {
       mode: raw.mode,
+      baseRevision: raw.base_revision ?? undefined,
       elevatedRuleIds: raw.policy.elevated_rule_ids,
       criticalPaths: raw.critical_paths,
       declaredObligations: raw.declared_obligations,
-      runRepositoryCommands: raw.trusted_operations.run_repository_commands,
-      mutationRequested: raw.trusted_operations.mutation,
+      runRepositoryCommands,
+      mutationRequested: trustedOperations.mutation,
       configPath: relative,
+      policyFingerprint,
       explicit: true,
-      limitations: [],
+      limitations: partialRunnerGrant
+        ? [
+            "Repository test execution requires run_repository_commands, evaluate_repository_config, and network_access together; the partial grant was treated as report-only.",
+          ]
+        : [],
     };
   }
 
   try {
-    const { raw, relative } = await readValidatedConfig(
+    const { raw, relative, policyFingerprint } = await readValidatedConfig(
       repoRoot,
       DISCOVERED_CONFIG_PATH,
     );
     const limitations: string[] = [];
     if (
       raw.trusted_operations.run_repository_commands ||
+      raw.trusted_operations.evaluate_repository_config ||
+      raw.trusted_operations.network_access ||
       raw.trusted_operations.mutation
     ) {
       limitations.push(
@@ -176,12 +220,14 @@ export async function loadTrust(
     }
     return {
       mode: raw.mode,
+      baseRevision: raw.base_revision ?? undefined,
       elevatedRuleIds: raw.policy.elevated_rule_ids,
       criticalPaths: raw.critical_paths,
       declaredObligations: raw.declared_obligations,
       runRepositoryCommands: false,
       mutationRequested: false,
       configPath: relative,
+      policyFingerprint,
       explicit: false,
       limitations,
     };
@@ -199,11 +245,11 @@ export async function loadTrust(
   }
 }
 
-const OWN_STATE_PREFIX = ".test-steward";
+const OWN_STATE_PREFIX = ".detestify";
 
 /**
- * Remove Test Steward's own state directory from a snapshot so reports and
- * receipts written under `.test-steward/` never change the analyzed diff or
+ * Remove Detestify's own state directory from a snapshot so reports and
+ * receipts written under `.detestify/` never change the analyzed diff or
  * its fingerprint.
  */
 export function stripOwnState(
@@ -256,17 +302,33 @@ const TIER_RANK: Readonly<Record<MaterialityTier, number>> = {
 };
 
 export interface PlanStageInput {
-  /** Snapshot with `.test-steward/` already stripped. */
+  /** Snapshot with `.detestify/` already stripped. */
   readonly snapshot: RepositorySnapshot;
   readonly trust: LoadedTrust;
   readonly observedAt: string;
-  /** Changed (non-deleted) test file paths from the same snapshot. */
+  /** Changed (non-deleted) test paths; paths alone are not covering evidence. */
   readonly changedTestFiles: readonly string[];
+  /** Modified TypeScript paths whose before/after runtime output is identical. */
+  readonly runtimeEquivalentPaths?: readonly string[];
+  /** Caller-proven relevance between a changed test and a determination path. */
+  readonly relevantChangedTests?: readonly {
+    readonly testPath: string;
+    readonly changedPath: string;
+  }[];
+  /** Explicit per-source disposition from inert test analysis. */
+  readonly existingEvidenceDeterminations?: readonly {
+    readonly testPath: string;
+    readonly changedPath: string;
+    readonly disposition: "update" | "candidate" | "sufficient";
+    readonly obligationRefs?: readonly string[];
+    readonly failureClass?: string;
+  }[];
   /** Identifier prefix for report-local ids. */
   readonly idPrefix: string;
 }
 
 function reasonCodeFor(ruleId: string): string {
+  if (ruleId === "CHG-002") return "RUNTIME_EMIT_UNCHANGED";
   return ruleId.replace(/-/g, "_");
 }
 
@@ -286,13 +348,88 @@ export function evaluatePlanStage(input: PlanStageInput): PlanStage {
 
   const classified = classifyChangeSet({
     changedFiles: snapshot.changedFiles,
+    ...(input.runtimeEquivalentPaths === undefined
+      ? {}
+      : { runtimeEquivalentPaths: input.runtimeEquivalentPaths }),
   });
   limitations.push(...classified.limitations);
 
-  const evidenceGap = changedTestFiles.length > 0 ? "partial" : "material";
-  const existingTestPath = changedTestFiles[0];
+  const changedTests = new Set(changedTestFiles);
+  const obligationsById = new Map(
+    trust.declaredObligations.map((obligation) => [obligation.id, obligation]),
+  );
+  const declaredRefsFor = (paths: readonly string[]): string[] =>
+    trust.criticalPaths.flatMap((rule) => {
+      const matcher = globToRegExp(rule.pattern);
+      if (!paths.some((file) => matcher.test(file))) {
+        return [];
+      }
+      return rule.obligation_ids.flatMap((id) => {
+        const declared = obligationsById.get(id);
+        return [declared === undefined ? id : `${id}:${declared.source}`];
+      });
+    });
+  const evidenceDispositionFor = (paths: readonly string[]) => {
+    const determinations: Array<{
+      testPath: string;
+      changedPath: string;
+      disposition: "update" | "candidate" | "sufficient";
+      obligationRefs?: readonly string[];
+      failureClass?: string;
+    }> = [
+      ...(input.relevantChangedTests ?? []).map((relation) => ({
+        ...relation,
+        disposition: "update" as const,
+      })),
+      ...(input.existingEvidenceDeterminations ?? []),
+    ].filter((relation) => paths.includes(relation.changedPath));
+    const update = determinations
+      .filter(
+        (relation) =>
+          relation.disposition === "update" &&
+          changedTests.has(relation.testPath),
+      )
+      .map((relation) => relation.testPath)
+      .sort()[0];
+    if (update !== undefined) {
+      return { existingTestPath: update, evidenceGap: "partial" as const };
+    }
+    const candidate = determinations
+      .filter(
+        (relation) =>
+          relation.disposition === "candidate" &&
+          !changedTests.has(relation.testPath),
+      )
+      .map((relation) => relation.testPath)
+      .sort()[0];
+    if (candidate !== undefined) {
+      return { existingTestPath: candidate, evidenceGap: "partial" as const };
+    }
+    const sufficient = determinations
+      .filter(
+        (relation) =>
+          relation.disposition === "sufficient" &&
+          !changedTests.has(relation.testPath),
+      )
+      .sort((left, right) => left.testPath.localeCompare(right.testPath))[0];
+    return sufficient !== undefined
+      ? {
+          sufficientExistingTestPath: sufficient.testPath,
+          ...(sufficient.obligationRefs === undefined
+            ? {}
+            : {
+                sufficientExistingObligationRefs: sufficient.obligationRefs,
+              }),
+          ...(sufficient.failureClass === undefined
+            ? {}
+            : { sufficientExistingFailureClass: sufficient.failureClass }),
+        }
+      : { evidenceGap: "material" as const };
+  };
 
   for (const classification of classified.classes) {
+    const declaredRefs = declaredRefsFor(classification.paths);
+    const existingEvidence = evidenceDispositionFor(classification.paths);
     determinations.push({
       det: {
         ruleId: classification.ruleId,
@@ -302,17 +439,14 @@ export function evaluatePlanStage(input: PlanStageInput): PlanStage {
         ...(classification.provenance === "observed"
           ? { observedRefs: classification.paths }
           : { fallbackProvenance: classification.provenance }),
-        evidenceGap,
-        ...(existingTestPath !== undefined ? { existingTestPath } : {}),
+        ...(declaredRefs.length > 0 ? { declaredRefs } : {}),
+        ...existingEvidence,
       },
       reasonCode: reasonCodeFor(classification.ruleId),
       summary: classification.rationale,
     });
   }
 
-  const obligationsById = new Map(
-    trust.declaredObligations.map((obligation) => [obligation.id, obligation]),
-  );
   const changedNonTestPaths = snapshot.changedFiles
     .map((file) => file.path)
     .filter((file) => !isTestFilePath(file));
@@ -326,15 +460,15 @@ export function evaluatePlanStage(input: PlanStageInput): PlanStage {
       const declared = obligationsById.get(id);
       return declared === undefined ? id : `${id}:${declared.source}`;
     });
+    const existingEvidence = evidenceDispositionFor(matched);
     determinations.push({
       det: {
         ruleId: "TST-001",
         applicability: "applies",
         statement: `Changed paths match declared critical path ${rule.pattern}.`,
         paths: matched,
-        declaredRefs: declaredRefs.length > 0 ? declaredRefs : [rule.pattern],
-        evidenceGap,
-        ...(existingTestPath !== undefined ? { existingTestPath } : {}),
+        declaredRefs,
+        ...existingEvidence,
       },
       reasonCode: "DECLARED_CRITICAL_PATH_CHANGED",
       summary: `Declared critical path ${rule.pattern} changed without verified evidence.`,
@@ -398,6 +532,7 @@ export function evaluatePlanStage(input: PlanStageInput): PlanStage {
 /** Report `change.classes` value for a classified diff. */
 const RULE_TO_CLASS: Readonly<Record<string, string>> = {
   "CHG-001": "documentation",
+  "CHG-002": "refactor",
   "CHG-004": "behavior",
   "CHG-005": "bugfix",
   "CHG-006": "boundary",

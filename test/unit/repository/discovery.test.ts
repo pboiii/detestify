@@ -6,6 +6,7 @@ import {
   discoverRepositoryShape,
   listRepositoryFiles,
 } from "../../../src/repository/discovery.js";
+import { runGit } from "../../../src/repository/git.js";
 
 let repoRoot = "";
 
@@ -15,7 +16,9 @@ beforeAll(async () => {
   );
   await mkdir(path.join(repoRoot, "src"), { recursive: true });
   await mkdir(path.join(repoRoot, "test"), { recursive: true });
-  await mkdir(path.join(repoRoot, ".git"), { recursive: true });
+  await mkdir(path.join(repoRoot, "nested-worktree/test"), {
+    recursive: true,
+  });
   await mkdir(path.join(repoRoot, "node_modules/depth"), { recursive: true });
 
   await writeFile(
@@ -36,10 +39,35 @@ beforeAll(async () => {
     path.join(repoRoot, "test/math.test.ts"),
     "export const t = 1;\n",
   );
-  await writeFile(path.join(repoRoot, ".git/config"), "[core]\n");
   await writeFile(
     path.join(repoRoot, "node_modules/depth/index.js"),
     "module.exports = 1;\n",
+  );
+  await writeFile(path.join(repoRoot, ".gitignore"), "dist/\nnode_modules/\n");
+  await runGit(repoRoot, ["init", "-q"]);
+  await runGit(repoRoot, [
+    "add",
+    ".gitignore",
+    "package.json",
+    "src/math.ts",
+    "test/math.test.ts",
+    "vitest.config.ts",
+  ]);
+  await writeFile(
+    path.join(repoRoot, "src/untracked.ts"),
+    "export const untracked = 1;\n",
+  );
+  await mkdir(path.join(repoRoot, "dist"), { recursive: true });
+  await writeFile(path.join(repoRoot, "dist/package.json"), "{}\n");
+  await writeFile(path.join(repoRoot, "dist/vitest.config.ts"), "export {};\n");
+  await writeFile(path.join(repoRoot, "dist/copy.test.ts"), "export {};\n");
+  await writeFile(
+    path.join(repoRoot, "nested-worktree/.git"),
+    "gitdir: /outside/worktree\n",
+  );
+  await writeFile(
+    path.join(repoRoot, "nested-worktree/test/ignored.test.ts"),
+    "throw new Error('must not be discovered');\n",
   );
 });
 
@@ -48,14 +76,31 @@ afterAll(async () => {
 });
 
 describe("repository file listing", () => {
-  it("walks the worktree and skips .git and node_modules", async () => {
+  it("uses Git's tracked and non-ignored worktree files", async () => {
     const files = await listRepositoryFiles(repoRoot);
     expect(files).toEqual([
+      ".gitignore",
       "package.json",
       "src/math.ts",
+      "src/untracked.ts",
       "test/math.test.ts",
       "vitest.config.ts",
     ]);
+    const shape = await discoverRepositoryShape(repoRoot, files);
+    expect(shape.manifests.map((manifest) => manifest.path)).toEqual([
+      "package.json",
+    ]);
+    expect(shape.sourceFiles).toEqual([
+      "src/math.ts",
+      "src/untracked.ts",
+      "vitest.config.ts",
+    ]);
+    expect(shape.testFiles).toEqual(["test/math.test.ts"]);
+  });
+
+  it("skips test files in nested Git worktrees", async () => {
+    const files = await listRepositoryFiles(repoRoot);
+    expect(files).not.toContain("nested-worktree/test/ignored.test.ts");
   });
 });
 
@@ -92,6 +137,7 @@ describe("repository shape discovery", () => {
       scriptNames: ["evil", "test"],
       devDependencyNames: ["typescript", "vitest"],
     });
+    expect(JSON.stringify(shape)).not.toContain("rm -rf /");
   });
 
   it("reports executable JS/TS runner config as a limitation, not a read", async () => {
@@ -113,6 +159,77 @@ describe("repository shape discovery", () => {
     expect(shape.sourceFiles).toEqual(["src/math.ts"]);
     expect(shape.testFiles).toEqual(["test/math.test.ts"]);
   });
+
+  it("excludes name-only fixture modules from runner execution", async () => {
+    const fixtureRoot = await mkdtemp(
+      path.join(os.tmpdir(), "test-steward-fixture-module-"),
+    );
+    try {
+      await mkdir(path.join(fixtureRoot, "src"));
+      await writeFile(
+        path.join(fixtureRoot, "package.json"),
+        JSON.stringify({ devDependencies: { vitest: "3.0.0" } }),
+      );
+      await writeFile(
+        path.join(fixtureRoot, "src/cases.spec.ts"),
+        "export const cases = [1, 2];\n",
+      );
+      await writeFile(
+        path.join(fixtureRoot, "src/math.test.ts"),
+        "import { it } from 'vitest';\nit('math', () => {});\n",
+      );
+      const shape = await discoverRepositoryShape(fixtureRoot, [
+        "package.json",
+        "src/cases.spec.ts",
+        "src/math.test.ts",
+      ]);
+      expect(shape.runner).toBe("vitest");
+      expect(shape.testFiles).toEqual([
+        "src/cases.spec.ts",
+        "src/math.test.ts",
+      ]);
+      expect(shape.runnerTestFiles).toEqual(["src/math.test.ts"]);
+    } finally {
+      await rm(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ["vitest", "vitest", "test"],
+    ["vitest each", "vitest", "test.each([[1]])"],
+    ["jest", "jest", "describe"],
+  ] as const)(
+    "includes %s tests that use configured globals without imports",
+    async (_label, runner, registration) => {
+      const globalRoot = await mkdtemp(
+        path.join(os.tmpdir(), `test-steward-${runner}-globals-`),
+      );
+      try {
+        await mkdir(path.join(globalRoot, "test"));
+        await writeFile(
+          path.join(globalRoot, "package.json"),
+          JSON.stringify({ devDependencies: { [runner]: "3.0.0" } }),
+        );
+        await writeFile(
+          path.join(globalRoot, "test/global.test.ts"),
+          `${registration}("global", () => {});\n`,
+        );
+        await writeFile(
+          path.join(globalRoot, "test/cases.test.ts"),
+          "export const cases = [1, 2];\n",
+        );
+        const shape = await discoverRepositoryShape(globalRoot, [
+          "package.json",
+          "test/cases.test.ts",
+          "test/global.test.ts",
+        ]);
+        expect(shape.runner).toBe(runner);
+        expect(shape.runnerTestFiles).toEqual(["test/global.test.ts"]);
+      } finally {
+        await rm(globalRoot, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("reports a malformed manifest as a limitation instead of failing", async () => {
     const brokenRoot = await mkdtemp(
@@ -144,6 +261,194 @@ describe("repository shape discovery", () => {
       expect(shape.runner).toBe("unknown");
     } finally {
       await rm(mixedRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("returns unknown for Vitest plus a node:test script without exposing it", async () => {
+    const mixedRoot = await mkdtemp(
+      path.join(os.tmpdir(), "test-steward-node-test-"),
+    );
+    try {
+      await writeFile(
+        path.join(mixedRoot, "package.json"),
+        JSON.stringify({
+          scripts: { "test:node": "node --test test/*.test.js" },
+          devDependencies: { vitest: "3.0.0" },
+        }),
+      );
+      const shape = await discoverRepositoryShape(mixedRoot, ["package.json"]);
+      expect(shape.runner).toBe("unknown");
+      expect(shape.runnerMarkers).toContainEqual({
+        path: "package.json",
+        runner: "node:test",
+        kind: "package-script",
+        executable: false,
+      });
+      expect(JSON.stringify(shape)).not.toContain("node --test");
+    } finally {
+      await rm(mixedRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("returns unknown for Vitest plus an unread Playwright config", async () => {
+    const mixedRoot = await mkdtemp(
+      path.join(os.tmpdir(), "test-steward-playwright-"),
+    );
+    try {
+      await writeFile(
+        path.join(mixedRoot, "package.json"),
+        JSON.stringify({ devDependencies: { vitest: "3.0.0" } }),
+      );
+      await writeFile(
+        path.join(mixedRoot, "playwright.config.ts"),
+        "throw new Error('must never execute');\n",
+      );
+      const shape = await discoverRepositoryShape(mixedRoot, [
+        "package.json",
+        "playwright.config.ts",
+      ]);
+      expect(shape.runner).toBe("unknown");
+      expect(shape.runnerMarkers).toContainEqual({
+        path: "playwright.config.ts",
+        runner: "playwright",
+        kind: "config-file",
+        executable: true,
+      });
+    } finally {
+      await rm(mixedRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("selects only inertly owned Vitest files in a mixed Playwright repository", async () => {
+    const mixedRoot = await mkdtemp(
+      path.join(os.tmpdir(), "test-steward-owned-playwright-"),
+    );
+    try {
+      await mkdir(path.join(mixedRoot, "test"));
+      await mkdir(path.join(mixedRoot, "e2e"));
+      await writeFile(
+        path.join(mixedRoot, "package.json"),
+        JSON.stringify({
+          devDependencies: {
+            vitest: "3.0.0",
+            "@playwright/test": "1.0.0",
+          },
+        }),
+      );
+      await writeFile(
+        path.join(mixedRoot, "test/unit.test.ts"),
+        "import { it } from 'vitest';\nit('unit', () => {});\n",
+      );
+      await writeFile(
+        path.join(mixedRoot, "e2e/app.spec.ts"),
+        "import { test } from '@playwright/test';\ntest('e2e', async () => {});\n",
+      );
+      await writeFile(
+        path.join(mixedRoot, "test/cases.test.ts"),
+        "export const cases = [1, 2];\n",
+      );
+      const shape = await discoverRepositoryShape(mixedRoot, [
+        "package.json",
+        "test/cases.test.ts",
+        "test/unit.test.ts",
+        "e2e/app.spec.ts",
+      ]);
+
+      expect(shape.runner).toBe("vitest");
+      expect(shape.testFiles).toEqual([
+        "e2e/app.spec.ts",
+        "test/cases.test.ts",
+        "test/unit.test.ts",
+      ]);
+      expect(shape.runnerTestFiles).toEqual(["test/unit.test.ts"]);
+      expect(shape.limitations).toContainEqual(
+        expect.stringContaining("excluded from execution/replay"),
+      );
+    } finally {
+      await rm(mixedRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("returns unknown for Vitest plus Bun script/config markers", async () => {
+    const mixedRoot = await mkdtemp(
+      path.join(os.tmpdir(), "test-steward-bun-"),
+    );
+    try {
+      await writeFile(
+        path.join(mixedRoot, "package.json"),
+        JSON.stringify({
+          scripts: { "test:bun": "bun test" },
+          devDependencies: { vitest: "3.0.0" },
+        }),
+      );
+      await writeFile(path.join(mixedRoot, "bunfig.toml"), "[test]\n");
+      const shape = await discoverRepositoryShape(mixedRoot, [
+        "package.json",
+        "bunfig.toml",
+      ]);
+      expect(shape.runner).toBe("unknown");
+      expect(shape.runnerMarkers).toContainEqual({
+        path: "package.json",
+        runner: "bun",
+        kind: "package-script",
+        executable: false,
+      });
+      expect(shape.runnerMarkers).toContainEqual({
+        path: "bunfig.toml",
+        runner: "bun",
+        kind: "config-file",
+        executable: false,
+      });
+    } finally {
+      await rm(mixedRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("detects node:test from an inert package script", async () => {
+    const nodeRoot = await mkdtemp(
+      path.join(os.tmpdir(), "test-steward-node-only-"),
+    );
+    try {
+      await writeFile(
+        path.join(nodeRoot, "package.json"),
+        JSON.stringify({ scripts: { test: "node --test" } }),
+      );
+      const shape = await discoverRepositoryShape(nodeRoot, ["package.json"]);
+      expect(shape.runner).toBe("node:test");
+      expect(shape.runnerTestFiles).toEqual([]);
+    } finally {
+      await rm(nodeRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("detects node:test imports even when a wrapper script hides the command", async () => {
+    const nodeRoot = await mkdtemp(
+      path.join(os.tmpdir(), "test-steward-node-import-"),
+    );
+    try {
+      await mkdir(path.join(nodeRoot, "test"));
+      await writeFile(
+        path.join(nodeRoot, "package.json"),
+        JSON.stringify({ scripts: { test: "node scripts/run-tests.mjs" } }),
+      );
+      await writeFile(
+        path.join(nodeRoot, "test/native.test.mjs"),
+        "import test from 'node:test';\ntest('ok', () => {});\n",
+      );
+      const shape = await discoverRepositoryShape(nodeRoot, [
+        "package.json",
+        "test/native.test.mjs",
+      ]);
+      expect(shape.runner).toBe("node:test");
+      expect(shape.runnerTestFiles).toEqual(["test/native.test.mjs"]);
+      expect(shape.runnerMarkers).toContainEqual({
+        path: "test/native.test.mjs",
+        runner: "node:test",
+        kind: "package-config",
+        executable: false,
+      });
+    } finally {
+      await rm(nodeRoot, { recursive: true, force: true });
     }
   });
 

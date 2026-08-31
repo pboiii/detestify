@@ -13,6 +13,7 @@ const exampleSchemas: Record<string, (typeof SCHEMA_FILES)[number]> = {
   "cleanup-delete-candidate.json": "cleanup-plan.schema.json",
   "cleanup-static-only-merge.json": "cleanup-plan.schema.json",
   "config.valid.json": "config.schema.json",
+  "decision-existing-evidence-sufficient.json": "decision.schema.json",
   "decision-insufficient.json": "decision.schema.json",
   "decision-no-test.json": "decision.schema.json",
   "evidence-git-diff.json": "evidence.schema.json",

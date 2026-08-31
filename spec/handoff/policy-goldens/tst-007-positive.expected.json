@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "id": "decision-tst-007-positive",
   "domain": "change",
-  "outcome": "NEW_TEST_CANDIDATE",
+  "outcome": "INSUFFICIENT_EVIDENCE",
   "gate_action": "advise",
   "confidence": "high",
   "reason_code": "GOLDEN_TST_007_POSITIVE",
@@ -16,13 +16,16 @@
     "evidence-tst-007-positive"
   ],
   "target": {
-    "scope": "integration",
-    "purpose": "performance",
-    "technique": "example",
-    "cadence": "nightly",
-    "failure_class": "nonfunctional-obligation",
+    "scope": null,
+    "purpose": null,
+    "technique": null,
+    "cadence": null,
+    "failure_class": null,
     "test_path": null
   },
   "cleanup_requirements": null,
-  "limitations": []
+  "limitations": [
+    "The observed failure mechanism and boundary do not resolve a minimum sufficient evidence target.",
+    "Emit advisory or INSUFFICIENT_EVIDENCE; never gate."
+  ]
 }

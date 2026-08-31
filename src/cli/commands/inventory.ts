@@ -5,13 +5,14 @@
 // repository context loading, inert config reading, envelope assembly, and
 // report emission.
 
-import { lstat, readFile } from "node:fs/promises";
+import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { CommanderError } from "commander";
 import { EXIT_CODES, type ExitCode } from "../exit-codes.js";
 import type { CommandOptions } from "../options.js";
 import { writeJsonReport } from "../output.js";
+import { CLI_VERSION } from "../version.js";
 import {
   GitError,
   snapshotRepository,
@@ -35,7 +36,7 @@ import {
 import { formatSchemaErrors, getValidator } from "../../core/schemas/index.js";
 import type { ConfigProtectedTest } from "../../cleanup/protection.js";
 
-export const CLI_VERSION = "0.0.0-alpha.0";
+export { CLI_VERSION };
 
 /**
  * Throw with an explicit exit code. `main.ts` passes `exitCode` through only
@@ -43,7 +44,7 @@ export const CLI_VERSION = "0.0.0-alpha.0";
  */
 export function fail(exitCode: ExitCode, message: string): never {
   process.stderr.write(`${message}\n`);
-  throw new CommanderError(exitCode, "test-steward.notImplemented", message);
+  throw new CommanderError(exitCode, "detestify.notImplemented", message);
 }
 
 export interface LoadedConfig {
@@ -67,11 +68,10 @@ export async function loadInertConfig(
   if (configPath === undefined) {
     return NO_CONFIG;
   }
-  const relative = path.relative(
-    repositoryRoot,
-    path.resolve(repositoryRoot, configPath),
-  );
-  const contained = await realpathContained(repositoryRoot, relative);
+  const root = await realpath(repositoryRoot);
+  const requested = await realpath(path.resolve(root, configPath));
+  const relative = path.relative(root, requested);
+  const contained = await realpathContained(root, relative);
   const stat = await lstat(contained);
   if (!stat.isFile()) {
     throw new Error(`Configuration is not a regular file: ${configPath}`);

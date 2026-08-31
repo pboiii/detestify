@@ -1,5 +1,5 @@
 {
-  "description": "Test Steward lifecycle checks",
+  "description": "Detestify lifecycle checks",
   "hooks": {
     "SessionStart": [
       {
@@ -7,10 +7,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex session_start",
+            "command": "${PLUGIN_ROOT}/bin/detestify-hook codex session_start",
             "timeout": 5,
-            "statusMessage": "Loading Test Steward repository state",
-            "additionalContextLimit": 6000
+            "statusMessage": "Loading Detestify repository state"
           }
         ]
       }
@@ -21,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex before_tool",
+            "command": "${PLUGIN_ROOT}/bin/detestify-hook codex before_tool",
             "timeout": 5,
             "statusMessage": "Checking test-policy guard"
           }
@@ -34,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex after_tool",
+            "command": "${PLUGIN_ROOT}/bin/detestify-hook codex after_tool",
             "timeout": 5,
             "statusMessage": "Recording changed evidence"
           }
@@ -46,10 +45,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex subagent_stop",
+            "command": "${PLUGIN_ROOT}/bin/detestify-hook codex subagent_stop",
             "timeout": 20,
-            "statusMessage": "Verifying subagent test evidence",
-            "additionalContextLimit": 6000
+            "statusMessage": "Verifying subagent test evidence"
           }
         ]
       }
@@ -59,10 +57,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex turn_stop",
+            "command": "${PLUGIN_ROOT}/bin/detestify-hook codex turn_stop",
             "timeout": 20,
-            "statusMessage": "Verifying test evidence",
-            "additionalContextLimit": 6000
+            "statusMessage": "Verifying test evidence"
           }
         ]
       }
@@ -72,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex session_end",
+            "command": "${PLUGIN_ROOT}/bin/detestify-hook codex session_end",
             "timeout": 3
           }
         ]

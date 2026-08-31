@@ -1,9 +1,9 @@
 ---
-name: test-steward
-description: Decide whether a code change needs a new test, an update to existing evidence, no persistent test, or more information; verify completed changes; and produce conservative legacy-test cleanup plans through the Test Steward CLI.
+name: detestify
+description: Decide whether a code change needs a new test, an update to existing evidence, no persistent test, or more information; verify completed changes; and produce conservative legacy-test cleanup plans through the Detestify CLI.
 ---
 
-# Test Steward
+# Detestify
 
 Use this skill when editing code or tests, planning verification for a diff, reviewing an agent-authored test change, or auditing a test portfolio.
 
@@ -28,7 +28,7 @@ The CLI is authoritative for repository facts, policy outcomes, schemas, and rep
 Run the read-only first pass:
 
 ```text
-npx test-steward plan --diff --json=-
+npx detestify plan --diff --json=-
 ```
 
 Read the complete JSON report. Do not infer success from the terminal summary alone.
@@ -37,9 +37,10 @@ When the command returns an operational failure, report the exact exit category 
 
 ### 2. Read the change decision
 
-Handle the four change outcomes as follows:
+Handle the five change outcomes as follows:
 
 - `NO_TEST_SUPPORTED`: do not create a test merely because a file changed. Preserve or run relevant existing evidence when appropriate.
+- `EXISTING_EVIDENCE_SUFFICIENT`: retain and run the named test unchanged; do not add, rewrite, or parameterize evidence that already detects the same failure mechanism.
 - `EXISTING_TEST_UPDATE_CANDIDATE`: inspect the named existing test and obligation. Update it only if intended behavior changed or the existing evidence no longer exercises the obligation.
 - `NEW_TEST_CANDIDATE`: inspect the proposed failure class and target scope. Add the smallest evidence that detects that distinct mechanism.
 - `INSUFFICIENT_EVIDENCE`: gather the specific missing fact or remain advisory. Do not convert uncertainty into a test-writing reflex.
@@ -83,7 +84,7 @@ Do not create a family of neighboring examples when one property, parameterized 
 After implementation, run:
 
 ```text
-npx test-steward verify-change --json=-
+npx detestify verify-change --json=-
 ```
 
 Repository test commands are trust-gated. Follow the report's selected verification and exact limitations. Missing optional coverage or mutation evidence is not a failure by itself.
@@ -113,8 +114,8 @@ For every added or materially edited test, confirm:
 Do not start cleanup merely because a task touched a test file. When cleanup is requested, run:
 
 ```text
-npx test-steward audit --json=-
-npx test-steward cleanup-plan --json=-
+npx detestify audit --json=-
+npx detestify cleanup-plan --json=-
 ```
 
 Treat outputs as candidates:
@@ -138,7 +139,7 @@ Failure class and scope:
 Tests added/updated/retained:
 Verification executed:
 Remaining limitations:
-Test Steward report path:
+Detestify report path:
 ```
 
 Do not claim a report proved facts it explicitly marks unavailable.
@@ -167,12 +168,3 @@ Do not:
 Claude and Codex wrappers normalize their current host events into the same core envelope. Event support is not identical. The core must tolerate absent host events and must not invent `task_complete` for Codex production execution.
 
 Detailed host translation belongs in the certified package specifications, not in this skill.
-
-## References
-
-- `references/testing-doctrine.md`
-- `references/placement-examples.md`
-- `references/obligation-provenance.md`
-- `references/cleanup-safety.md`
-- `references/report-reading.md`
-- `references/host-behavior.md`

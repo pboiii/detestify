@@ -11,7 +11,9 @@ import {
   readdir,
   readFile,
   rm,
+  stat,
   symlink,
+  truncate,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -28,12 +30,17 @@ import {
   writePlanReportAtomic,
   type PlanReport,
 } from "../../src/core/reports/index.js";
-import type { Decision } from "../../src/core/model/index.js";
+import type {
+  Decision,
+  MaterialityTier,
+  ObligationCandidate,
+} from "../../src/core/model/index.js";
+import { writeJsonReport } from "../../src/cli/output.js";
 
 const execFileAsync = promisify(execFile);
 const PROJECT_ROOT = process.cwd();
 const TSX = path.join(PROJECT_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
-const BIN = path.join(PROJECT_ROOT, "bin", "test-steward.ts");
+const BIN = path.join(PROJECT_ROOT, "bin", "detestify.ts");
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_BYTES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/;
@@ -68,6 +75,8 @@ function makeDecision(overrides: Partial<Decision> = {}): Decision {
 
 function makeReport(overrides: {
   decision?: Partial<Decision>;
+  decisions?: readonly Decision[];
+  obligations?: readonly ObligationCandidate[];
   limitations?: readonly string[];
 }): PlanReport {
   return buildPlanReport({
@@ -94,7 +103,7 @@ function makeReport(overrides: {
       repository_commands_trusted: false,
       network_used: false,
     },
-    obligations: [],
+    obligations: overrides.obligations ?? [],
     evidence: [
       {
         schema_version: "1.0",
@@ -116,10 +125,36 @@ function makeReport(overrides: {
         limitations: [],
       },
     ],
-    decisions: [makeDecision(overrides.decision ?? {})],
+    decisions: overrides.decisions ?? [makeDecision(overrides.decision ?? {})],
     limitations: [...(overrides.limitations ?? ["No commands executed."])],
     timing: { elapsed_ms: 1, phases: { repository_discovery: 1 } },
   });
+}
+
+function makeObligation(
+  id: string,
+  tier: MaterialityTier,
+): ObligationCandidate {
+  return {
+    schema_version: "1.0",
+    id,
+    title: id,
+    statement: `${id} changed.`,
+    provenance: "observed",
+    source_refs: ["ev-git-diff"],
+    materiality: {
+      consequence: tier === "T3" ? "irreversible" : "degraded",
+      exposure: tier === "T3" ? "cross_system" : "user_facing",
+      change_mechanism:
+        tier === "T3" ? "stateful_or_irreversible" : "pure_behavior",
+      evidence_gap: tier === "TU" ? "unknown" : "material",
+      confidence: "observed",
+      tier,
+    },
+    gate_eligible: false,
+    rationale: `${id} rationale.`,
+    limitations: [],
+  };
 }
 
 let scratch: string;
@@ -140,9 +175,9 @@ describe("report target containment", () => {
     const outside = path.join(scratch, "outside-target");
     await mkdir(repo, { recursive: true });
     await mkdir(outside, { recursive: true });
-    await symlink(outside, path.join(repo, ".test-steward"));
+    await symlink(outside, path.join(repo, ".detestify"));
 
-    const target = path.join(repo, ".test-steward", "reports", "r.json");
+    const target = path.join(repo, ".detestify", "reports", "r.json");
     await expect(assertContainedReportTarget(target, repo)).rejects.toThrow(
       /Report I\/O error: .*escapes the repository root/,
     );
@@ -196,7 +231,7 @@ describe("report target containment", () => {
     await git(["config", "user.name", "t"]);
     await git(["add", "-A"]);
     await git(["commit", "-q", "-m", "baseline"]);
-    await symlink(outside, path.join(repo, ".test-steward"));
+    await symlink(outside, path.join(repo, ".detestify"));
     await writeFile(path.join(repo, "file.txt"), "changed\n", "utf8");
 
     const result = await new Promise<{
@@ -239,7 +274,7 @@ describe("output-injection redaction", () => {
       decision: { summary: hostile },
       limitations: [hostile],
     });
-    const rendered = renderPlanSummary(report, ".test-steward/reports/r.json");
+    const rendered = renderPlanSummary(report, ".detestify/reports/r.json");
     expect(CONTROL_BYTES.test(rendered)).toBe(false);
     expect(rendered).not.toContain("\u001b");
     expect(rendered).not.toContain("\u0007");
@@ -304,7 +339,116 @@ describe("output-injection redaction", () => {
   });
 });
 
+describe("decision selection", () => {
+  it("prefers minimum sufficient evidence for one material obligation and still surfaces uncertainty", () => {
+    const obligation = makeObligation("ob-retry", "T3");
+    const report = makeReport({
+      obligations: [obligation],
+      decisions: [
+        makeDecision({
+          id: "dec-new",
+          outcome: "NEW_TEST_CANDIDATE",
+          obligation_candidate_ids: [obligation.id],
+        }),
+        makeDecision({
+          id: "dec-insufficient",
+          outcome: "INSUFFICIENT_EVIDENCE",
+          obligation_candidate_ids: [obligation.id],
+        }),
+        makeDecision({
+          id: "dec-update",
+          outcome: "EXISTING_TEST_UPDATE_CANDIDATE",
+          obligation_candidate_ids: [obligation.id],
+        }),
+        makeDecision({
+          id: "dec-sufficient",
+          outcome: "EXISTING_EVIDENCE_SUFFICIENT",
+          obligation_candidate_ids: [obligation.id],
+          target: {
+            scope: "integration",
+            purpose: "regression",
+            technique: "existing_evidence",
+            cadence: "pull_request",
+            failure_class: "retry-after-failed-claim",
+            test_path: "test/integration/webhook.test.ts",
+          },
+        }),
+      ],
+    });
+
+    expect(report.decisions.map((decision) => decision.outcome)).toEqual([
+      "EXISTING_EVIDENCE_SUFFICIENT",
+      "EXISTING_TEST_UPDATE_CANDIDATE",
+      "NEW_TEST_CANDIDATE",
+      "INSUFFICIENT_EVIDENCE",
+    ]);
+    expect(renderPlanSummary(report, null)).toContain(
+      "Unresolved: 1 decision needs more evidence",
+    );
+  });
+
+  it("ranks materiality before evidence cost across obligations", () => {
+    const high = makeObligation("ob-high", "T3");
+    const low = makeObligation("ob-low", "T1");
+    const report = makeReport({
+      obligations: [low, high],
+      decisions: [
+        makeDecision({
+          id: "dec-low-sufficient",
+          outcome: "EXISTING_EVIDENCE_SUFFICIENT",
+          obligation_candidate_ids: [low.id],
+        }),
+        makeDecision({
+          id: "dec-high-new",
+          outcome: "NEW_TEST_CANDIDATE",
+          obligation_candidate_ids: [high.id],
+        }),
+      ],
+    });
+
+    expect(report.decisions[0]?.id).toBe("dec-high-new");
+  });
+});
+
 describe("atomic report writing", () => {
+  it("uses private files and rejects symlink parents and targets", async () => {
+    const directory = path.join(scratch, "shared-json-writer");
+    await mkdir(directory);
+    const target = path.join(directory, "report.json");
+    await writeJsonReport(target, { ok: true });
+    expect((await stat(target)).mode & 0o777).toBe(0o600);
+
+    const victim = path.join(directory, "victim.json");
+    const targetLink = path.join(directory, "target-link.json");
+    await writeFile(victim, "{}\n", "utf8");
+    await symlink(victim, targetLink);
+    await expect(writeJsonReport(targetLink, { ok: false })).rejects.toThrow(
+      /Report I\/O error: .*symlink/,
+    );
+
+    const outside = path.join(scratch, "shared-json-outside");
+    const parentLink = path.join(directory, "parent-link");
+    await mkdir(outside);
+    await symlink(outside, parentLink);
+    await expect(
+      writeJsonReport(path.join(parentLink, "escaped.json"), { ok: false }),
+    ).rejects.toThrow(/Report I\/O error: .*symlink parent/);
+    expect(await readdir(outside)).toEqual([]);
+  });
+
+  it("does not read an oversized previous report", async () => {
+    const dir = path.join(scratch, "oversized-previous");
+    await mkdir(dir, { recursive: true });
+    const target = path.join(dir, "report.json");
+    await writeFile(target, "");
+    await truncate(target, 8 * 1024 * 1024 + 1);
+    await expect(detectStaleReport(target, "sha256:current")).resolves.toEqual({
+      exists: true,
+      previousFingerprint: null,
+      stale: false,
+    });
+  });
+
   it("leaves no partial file when the write fails", async () => {
     const readonly = path.join(scratch, "readonly");
     await mkdir(readonly, { recursive: true });

@@ -3,11 +3,13 @@
 // INSUFFICIENT_EVIDENCE and emits a cleanup-plan.schema.json document.
 //
 // The evidence rule is applied literally. DELETE_CANDIDATE requires all of:
-//   1. no declared protected obligation attaches to the candidate;
-//   2. at least one structural redundancy signal;
-//   3. at least one INDEPENDENT behavioral or historical signal
+//   1. explicit, disjoint remove and retain paths covering the candidate;
+//   2. no declared protected obligation attaches to a removal path;
+//   3. at least one structural redundancy signal;
+//   4. at least one INDEPENDENT behavioral or historical signal
 //      (a signal also listed as structural is discounted);
-//   4. human approval always required.
+//   5. a passing candidate-bound counterfactual and linked worktree result;
+//   6. human approval always required.
 // Static-only evidence yields MERGE_CANDIDATE or INSUFFICIENT_EVIDENCE, never
 // DELETE_CANDIDATE. The planner never promotes a detector proposal to a more
 // destructive action, and it never touches test files.
@@ -20,6 +22,7 @@ import {
   PROTECTED_TESTS_LEDGER,
   type ProtectionIndex,
 } from "./protection.js";
+import type { EvidenceRecord } from "../core/model/index.js";
 
 export type CleanupAction =
   | "KEEP"
@@ -37,6 +40,9 @@ export interface ProtectedCheck {
 export interface Counterfactual {
   readonly status: "not_run" | "passed" | "failed" | "partial";
   readonly commands_ref: string | null;
+  readonly candidate_id: string | null;
+  readonly remove_paths: readonly string[];
+  readonly retain_paths: readonly string[];
   readonly preserved_obligations: readonly string[];
   readonly limitations: readonly string[];
 }
@@ -54,11 +60,19 @@ export interface HumanApproval {
   readonly approver_ref: string | null;
 }
 
+export interface ObligationPreservation {
+  readonly obligation_id: string;
+  readonly retained_paths: readonly string[];
+}
+
 export interface CleanupCandidate {
   readonly id: string;
   readonly test_paths: readonly string[];
+  readonly remove_paths: readonly string[];
+  readonly retain_paths: readonly string[];
   readonly action: CleanupAction;
   readonly obligation_ids: readonly string[];
+  readonly obligation_preservation: readonly ObligationPreservation[];
   readonly structural_signals: readonly string[];
   readonly independent_signals: readonly string[];
   readonly protected_checks: readonly ProtectedCheck[];
@@ -94,9 +108,12 @@ export interface CleanupPlan {
 export interface CandidateDraft {
   readonly id: string;
   readonly test_paths: readonly string[];
+  readonly remove_paths?: readonly string[];
+  readonly retain_paths?: readonly string[];
   readonly rationale: string;
   readonly proposed_action?: CleanupAction;
   readonly obligation_ids?: readonly string[];
+  readonly obligation_preservation?: readonly ObligationPreservation[];
   readonly structural_signals?: readonly string[];
   readonly independent_signals?: readonly string[];
   readonly counterfactual?: Counterfactual;
@@ -111,6 +128,8 @@ export interface CleanupPlanInput {
   readonly generated_at: string;
   readonly repository: CleanupPlanRepository;
   readonly candidates: readonly CandidateDraft[];
+  /** Report evidence available for signal-id resolution. */
+  readonly evidence?: readonly CleanupEvidenceRecord[];
   readonly protection: ProtectionIndex;
   /** config policy.allow_delete_candidates; defaults to true. */
   readonly allow_delete_candidates?: boolean;
@@ -118,9 +137,17 @@ export interface CleanupPlanInput {
   readonly limitations?: readonly string[];
 }
 
+export type CleanupEvidenceRecord = Pick<
+  EvidenceRecord,
+  "id" | "status" | "gate_trust" | "data"
+>;
+
 const DEFAULT_COUNTERFACTUAL: Counterfactual = {
   status: "not_run",
   commands_ref: null,
+  candidate_id: null,
+  remove_paths: [],
+  retain_paths: [],
   preserved_obligations: [],
   limitations: ["Counterfactual validation was not run."],
 };
@@ -144,6 +171,47 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+function sameValues(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value) => b.includes(value));
+}
+
+function evidenceIndex(
+  records: readonly CleanupEvidenceRecord[],
+): ReadonlyMap<string, CleanupEvidenceRecord | null> {
+  const index = new Map<string, CleanupEvidenceRecord | null>();
+  for (const record of records) {
+    index.set(record.id, index.has(record.id) ? null : record);
+  }
+  return index;
+}
+
+function isBoundEligibleEvidence(
+  record: CleanupEvidenceRecord | null | undefined,
+  candidateId: string,
+  removePaths: readonly string[],
+  retainPaths: readonly string[],
+): boolean {
+  if (
+    record === undefined ||
+    record === null ||
+    record.status !== "observed" ||
+    record.gate_trust !== "eligible" ||
+    record.data.candidate_id !== candidateId
+  ) {
+    return false;
+  }
+  const boundRemove = record.data.remove_paths;
+  const boundRetain = record.data.retain_paths;
+  return (
+    Array.isArray(boundRemove) &&
+    boundRemove.every((value) => typeof value === "string") &&
+    sameValues(boundRemove, removePaths) &&
+    Array.isArray(boundRetain) &&
+    boundRetain.every((value) => typeof value === "string") &&
+    sameValues(boundRetain, retainPaths)
+  );
+}
+
 function draftDetail(
   draft: CandidateDraft,
   source: string,
@@ -158,13 +226,32 @@ function draftDetail(
 function buildCandidate(
   draft: CandidateDraft,
   protection: ProtectionIndex,
+  evidence: ReadonlyMap<string, CleanupEvidenceRecord | null>,
   allowDelete: boolean,
+  revision: string,
 ): CleanupCandidate {
   if (draft.id.length === 0 || draft.test_paths.length === 0) {
     throw new Error(`Cleanup candidate draft is missing id or test_paths`);
   }
   const testPaths = unique(draft.test_paths);
+  const removePaths = unique(draft.remove_paths ?? []);
+  const retainPaths = unique(draft.retain_paths ?? []);
+  const directionalPaths = [...removePaths, ...retainPaths];
+  if (
+    directionalPaths.some((testPath) => !testPaths.includes(testPath)) ||
+    removePaths.some((testPath) => retainPaths.includes(testPath))
+  ) {
+    throw new Error(
+      `Cleanup candidate ${draft.id} has invalid remove_paths or retain_paths`,
+    );
+  }
   const obligationIds = unique(draft.obligation_ids ?? []);
+  const obligationPreservation = (draft.obligation_preservation ?? []).map(
+    (mapping) => ({
+      obligation_id: mapping.obligation_id,
+      retained_paths: unique(mapping.retained_paths),
+    }),
+  );
   const structural = unique(draft.structural_signals ?? []);
   const declaredIndependent = unique(draft.independent_signals ?? []);
   const independent = declaredIndependent.filter(
@@ -174,31 +261,80 @@ function buildCandidate(
     structural.includes(signal),
   );
 
-  const matches = matchProtection(protection, testPaths, obligationIds);
-  const ledgerMatches = matches.filter(
-    (record) => record.source === PROTECTED_TESTS_LEDGER,
-  );
-  const configMatches = matches.filter(
-    (record) => record.source === CONFIG_PROTECTION_SOURCE,
-  );
-  const isProtected = matches.length > 0;
   const ledgerOk = protection.deletionEligible;
+  const counterfactual = draft.counterfactual ?? DEFAULT_COUNTERFACTUAL;
+  const worktreeValidation = draft.worktree_validation ?? DEFAULT_WORKTREE;
+  const directionComplete =
+    removePaths.length > 0 &&
+    retainPaths.length > 0 &&
+    directionalPaths.length === testPaths.length &&
+    testPaths.every((testPath) => directionalPaths.includes(testPath));
+  const preservationComplete =
+    obligationIds.length > 0 &&
+    obligationPreservation.length === obligationIds.length &&
+    obligationIds.every((obligationId) => {
+      const mappings = obligationPreservation.filter(
+        (mapping) => mapping.obligation_id === obligationId,
+      );
+      return (
+        mappings.length === 1 &&
+        mappings[0]!.retained_paths.length > 0 &&
+        mappings[0]!.retained_paths.every((testPath) =>
+          retainPaths.includes(testPath),
+        )
+      );
+    });
+  const counterfactualBound =
+    counterfactual.status === "passed" &&
+    counterfactual.commands_ref !== null &&
+    counterfactual.candidate_id === draft.id &&
+    sameValues(counterfactual.remove_paths, removePaths) &&
+    sameValues(counterfactual.retain_paths, retainPaths) &&
+    obligationIds.length > 0 &&
+    obligationIds.every((obligationId) =>
+      counterfactual.preserved_obligations.includes(obligationId),
+    );
+  const worktreePassed =
+    worktreeValidation.status === "passed" &&
+    worktreeValidation.worktree_ref === counterfactual.commands_ref &&
+    worktreeValidation.revision === revision &&
+    worktreeValidation.cleanup_complete;
+  const signalIds = [...structural, ...independent];
+  const evidenceResolved =
+    signalIds.length > 0 &&
+    signalIds.every((signalId) =>
+      isBoundEligibleEvidence(
+        evidence.get(signalId),
+        draft.id,
+        removePaths,
+        retainPaths,
+      ),
+    );
+  const removalPaths = removePaths.length > 0 ? removePaths : testPaths;
+  const removalMatches = matchProtection(
+    protection,
+    removalPaths,
+    obligationIds,
+  );
 
   // Evidence rule, literally.
   const deleteEligible =
     ledgerOk &&
-    !isProtected &&
+    removalMatches.length === 0 &&
+    directionComplete &&
+    preservationComplete &&
     structural.length >= 1 &&
     independent.length >= 1 &&
+    evidenceResolved &&
+    counterfactualBound &&
+    worktreePassed &&
     allowDelete;
 
-  const derived: CleanupAction = isProtected
-    ? "KEEP"
-    : deleteEligible
-      ? "DELETE_CANDIDATE"
-      : structural.length >= 1 && testPaths.length >= 2
-        ? "MERGE_CANDIDATE"
-        : "INSUFFICIENT_EVIDENCE";
+  const derived: CleanupAction = deleteEligible
+    ? "DELETE_CANDIDATE"
+    : structural.length >= 1 && testPaths.length >= 2
+      ? "MERGE_CANDIDATE"
+      : "INSUFFICIENT_EVIDENCE";
 
   // The proposal is a ceiling: never promote beyond it.
   const proposal = draft.proposed_action;
@@ -215,6 +351,26 @@ function buildCandidate(
     action = derived;
   }
 
+  const attemptedAction = action;
+  const protectedPaths =
+    attemptedAction === "MERGE_CANDIDATE" ? testPaths : removalPaths;
+  const matches = matchProtection(protection, protectedPaths, obligationIds);
+  const protectionBlocked = !ledgerOk || matches.length > 0;
+  if (
+    protectionBlocked &&
+    (attemptedAction === "DELETE_CANDIDATE" ||
+      attemptedAction === "MERGE_CANDIDATE" ||
+      attemptedAction === "MOVE_CANDIDATE")
+  ) {
+    action = "KEEP";
+  }
+  const ledgerMatches = matches.filter(
+    (record) => record.source === PROTECTED_TESTS_LEDGER,
+  );
+  const configMatches = matches.filter(
+    (record) => record.source === CONFIG_PROTECTION_SOURCE,
+  );
+
   const limitations = [...(draft.limitations ?? [])];
   let rationale = draft.rationale;
   if (discounted.length > 0) {
@@ -222,24 +378,49 @@ function buildCandidate(
       `Discounted as not independent (also structural): ${discounted.join(", ")}.`,
     );
   }
+  if (
+    directionComplete &&
+    structural.length > 0 &&
+    independent.length > 0 &&
+    !evidenceResolved
+  ) {
+    limitations.push(
+      "Deletion eligibility withheld: one or more signal IDs do not resolve to observed, eligible evidence bound to this removal hypothesis.",
+    );
+  }
   if (proposal === "DELETE_CANDIDATE" && action !== "DELETE_CANDIDATE") {
-    const reason = isProtected
-      ? "a protected record retains the test"
-      : !ledgerOk
-        ? "the protection ledger is unavailable (fail closed)"
-        : structural.length === 0
-          ? "no structural redundancy signal exists"
-          : independent.length === 0
-            ? "no independent behavioral or historical signal exists"
-            : "policy disallows DELETE_CANDIDATE";
+    const reason =
+      matches.length > 0
+        ? "a protected record retains the test"
+        : !ledgerOk
+          ? "the protection ledger is unavailable (fail closed)"
+          : !directionComplete
+            ? "the removal hypothesis does not identify a complete remove/retain partition"
+            : !preservationComplete
+              ? "the removal hypothesis does not map every obligation to a retained owner"
+              : structural.length === 0
+                ? "no structural redundancy signal exists"
+                : independent.length === 0
+                  ? "no independent behavioral or historical signal exists"
+                  : !evidenceResolved
+                    ? "signal evidence is unresolved, ineligible, or bound to another removal hypothesis"
+                    : !counterfactualBound
+                      ? "no passing counterfactual is bound to this candidate and removal hypothesis"
+                      : !worktreePassed
+                        ? "no passing worktree validation is linked to the counterfactual on this revision"
+                        : "policy disallows DELETE_CANDIDATE";
     limitations.push(`Demoted from DELETE_CANDIDATE: ${reason}.`);
     rationale = `${rationale} Demoted to ${action}: ${reason}.`;
   }
-  if (isProtected && action === "KEEP" && proposal !== "KEEP") {
-    const record = matches[0]!;
-    if (proposal !== "DELETE_CANDIDATE") {
-      rationale = `${rationale} Protected record retains this test (${record.reason}).`;
-    }
+  if (protectionBlocked && action === "KEEP" && attemptedAction !== "KEEP") {
+    const reason =
+      matches.length > 0
+        ? `protected record retains this test (${matches[0]!.reason})`
+        : "the protection ledger is unavailable (fail closed)";
+    limitations.push(
+      `Protection prevents ${attemptedAction}; retained as KEEP: ${reason}.`,
+    );
+    rationale = `${rationale} ${reason}.`;
   }
 
   const checks: ProtectedCheck[] = [];
@@ -253,7 +434,7 @@ function buildCandidate(
       : ledgerMatches.length > 0
         ? `Protected record ${ledgerMatches[0]!.path} blocks removal: ${ledgerMatches[0]!.reason}.`
         : (draftDetail(draft, PROTECTED_TESTS_LEDGER, true) ??
-          `No protected record references ${testPaths.join(", ")}.`),
+          `No protected record references removal paths ${protectedPaths.join(", ")}.`),
   });
   const hasConfigRecords = protection.records.some(
     (record) => record.source === CONFIG_PROTECTION_SOURCE,
@@ -266,10 +447,10 @@ function buildCandidate(
         configMatches.length > 0
           ? `Config protected_tests record ${configMatches[0]!.path} blocks removal: ${configMatches[0]!.reason}.`
           : (draftDetail(draft, CONFIG_PROTECTION_SOURCE, true) ??
-            `No config protected_tests record references ${testPaths.join(", ")}.`),
+            `No config protected_tests record references removal paths ${protectedPaths.join(", ")}.`),
     });
   }
-  const expiryMatches = matchExpiry(protection, testPaths);
+  const expiryMatches = matchExpiry(protection, protectedPaths);
   if (expiryMatches.length > 0) {
     const record = expiryMatches[0]!;
     checks.push({
@@ -297,12 +478,14 @@ function buildCandidate(
     );
   }
 
-  const counterfactual = draft.counterfactual ?? DEFAULT_COUNTERFACTUAL;
   return {
     id: draft.id,
     test_paths: testPaths,
+    remove_paths: removePaths,
+    retain_paths: retainPaths,
     action,
     obligation_ids: obligationIds,
+    obligation_preservation: obligationPreservation,
     structural_signals: structural,
     independent_signals: independent,
     protected_checks: checks,
@@ -310,7 +493,7 @@ function buildCandidate(
       ...counterfactual,
       preserved_obligations: unique(counterfactual.preserved_obligations),
     },
-    worktree_validation: draft.worktree_validation ?? DEFAULT_WORKTREE,
+    worktree_validation: worktreeValidation,
     human_approval: humanApproval,
     rationale,
     limitations,
@@ -335,8 +518,17 @@ function compareCandidates(a: CleanupCandidate, b: CleanupCandidate): number {
  */
 export function buildCleanupPlan(input: CleanupPlanInput): CleanupPlan {
   const allowDelete = input.allow_delete_candidates ?? true;
+  const evidence = evidenceIndex(input.evidence ?? []);
   const candidates = input.candidates
-    .map((draft) => buildCandidate(draft, input.protection, allowDelete))
+    .map((draft) =>
+      buildCandidate(
+        draft,
+        input.protection,
+        evidence,
+        allowDelete,
+        input.repository.revision,
+      ),
+    )
     .sort(compareCandidates);
   return {
     schema_version: "1.0",

@@ -58,12 +58,13 @@ export function assignTier(input: TierInput): MaterialityTier {
       return "T2";
     }
 
-    // T3: Cross-system boundary or stateful/irreversible mechanism with
-    // material gap.
+    // T3: Cross-system boundary (including an already-covered obligation),
+    // or cross-system/stateful behavior with a material gap.
     if (
-      (exposure === "cross_system" ||
+      (exposure === "cross_system" && change_mechanism === "boundary") ||
+      ((exposure === "cross_system" ||
         change_mechanism === "stateful_or_irreversible") &&
-      evidence_gap === "material"
+        evidence_gap === "material")
     ) {
       return "T3";
     }

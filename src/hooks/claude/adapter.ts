@@ -8,8 +8,7 @@ import {
   type NormalizedDecision,
   type NormalizedInvocation,
 } from "../normalized.js";
-import { redactJson, redactText } from "../../security/redaction.js";
-import { limitModelVisibleFields } from "../../security/limits.js";
+import { redactJson } from "../../security/redaction.js";
 
 const CLAUDE_EVENT_MAP: Readonly<Record<string, HookEvent>> = {
   SessionStart: "session_start",
@@ -128,52 +127,48 @@ export async function normalizeClaudeInput(
 
 export interface HostOutput {
   readonly stdout: string | null;
+  readonly stderr: string | null;
   readonly exitCode: 0 | 2;
 }
 
-/** Claude events whose documented output accepts additional context. */
-const CLAUDE_CONTEXT_EVENTS: ReadonlySet<HookEvent> = new Set([
-  "session_start",
-  "after_tool",
-]);
+const ALLOW: HostOutput = { stdout: null, stderr: null, exitCode: 0 };
 
 const CLAUDE_BLOCK_EVENTS: ReadonlySet<HookEvent> = new Set([
   "turn_stop",
   "subagent_stop",
-  "task_complete",
 ]);
 
-function boundedText(
-  summary: string,
-  primary: string | null,
-): { summary: string; primary: string } {
-  const { fields } = limitModelVisibleFields({
-    summary,
-    reason: primary,
-  });
-  return {
-    summary: fields.summary ?? summary,
-    primary: fields.reason ?? primary ?? summary,
+const CLAUDE_CONTEXT_EVENT_NAMES: Readonly<Partial<Record<HookEvent, string>>> =
+  {
+    session_start: "SessionStart",
+    after_tool: "PostToolUse",
   };
+
+function feedback(decision: NormalizedDecision, action: string): string {
+  return `Detestify ${action} (${decision.reason_code}). Run detestify verify-change for details.`;
 }
 
-function plainAdvice(
-  decision: NormalizedDecision,
-  extraLimitation?: string,
-): HostOutput {
-  const { summary } = boundedText(decision.summary, decision.remediation);
-  const limitations = [
-    ...decision.limitations,
-    ...(extraLimitation !== undefined ? [extraLimitation] : []),
-  ];
-  const lines = [`Test Steward advice: ${redactText(summary)}`];
-  if (decision.report_path !== null) {
-    lines.push(`Report: ${decision.report_path}`);
+function advice(event: HookEvent, decision: NormalizedDecision): HostOutput {
+  const hookEventName = CLAUDE_CONTEXT_EVENT_NAMES[event];
+  if (hookEventName === undefined) {
+    return {
+      stdout: `${JSON.stringify({
+        systemMessage: feedback(decision, "reported guidance"),
+      })}\n`,
+      stderr: null,
+      exitCode: 0,
+    };
   }
-  if (limitations.length > 0) {
-    lines.push(`Limitations: ${redactText(limitations.join("; "))}`);
-  }
-  return { stdout: `${lines.join("\n")}\n`, exitCode: 0 };
+  return {
+    stdout: `${JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName,
+        additionalContext: feedback(decision, "reported guidance"),
+      },
+    })}\n`,
+    stderr: null,
+    exitCode: 0,
+  };
 }
 
 /**
@@ -184,61 +179,48 @@ export function translateClaudeDecision(
   event: HookEvent,
   decision: NormalizedDecision,
 ): HostOutput {
-  const { summary, primary } = boundedText(
-    decision.summary,
-    decision.remediation,
-  );
-
   if (decision.action === "allow") {
-    return { stdout: null, exitCode: 0 };
+    return ALLOW;
   }
 
   if (decision.action === "advise") {
-    if (CLAUDE_CONTEXT_EVENTS.has(event)) {
-      return {
-        stdout: `${JSON.stringify({
-          decision: "allow",
-          additionalContext: redactText(
-            `${summary}${decision.report_path !== null ? ` Report: ${decision.report_path}` : ""}`,
-          ),
-        })}\n`,
-        exitCode: 0,
-      };
-    }
-    return plainAdvice(decision);
+    return advice(event, decision);
   }
 
   if (decision.action === "deny_tool") {
     if (event !== "before_tool") {
-      return plainAdvice(
-        { ...decision, remediation: null },
-        `deny_tool is not supported on ${event}; degraded to advice.`,
-      );
+      return advice(event, decision);
     }
     return {
       stdout: `${JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
           permissionDecision: "deny",
-          permissionDecisionReason: redactText(primary),
+          permissionDecisionReason: feedback(decision, "denied this tool call"),
         },
       })}\n`,
+      stderr: null,
       exitCode: 0,
     };
   }
 
   // request_remediation
+  if (event === "task_complete") {
+    return {
+      stdout: null,
+      stderr: `${feedback(decision, "blocked task completion")}\n`,
+      exitCode: 2,
+    };
+  }
   if (!CLAUDE_BLOCK_EVENTS.has(event)) {
-    return plainAdvice(
-      { ...decision, remediation: null },
-      `request_remediation is not supported on ${event}; degraded to advice.`,
-    );
+    return advice(event, decision);
   }
   return {
     stdout: `${JSON.stringify({
       decision: "block",
-      reason: redactText(primary),
+      reason: feedback(decision, "requires verification before completion"),
     })}\n`,
+    stderr: null,
     exitCode: 0,
   };
 }

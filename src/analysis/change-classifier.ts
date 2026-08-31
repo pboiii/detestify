@@ -32,6 +32,8 @@ export interface ChangeClassifierInput {
   readonly boundaries?: BoundariesAnalysis;
   /** Paths with a supplied reproduced-failure (CHG-005 requires observed evidence). */
   readonly observedFailurePaths?: readonly string[];
+  /** Modified TypeScript paths whose before/after runtime emit is identical. */
+  readonly runtimeEquivalentPaths?: readonly string[];
 }
 
 export interface ChangeClassificationResult {
@@ -93,6 +95,7 @@ export function classifyChangeSet(
   const limitations: string[] = [];
 
   const changedPaths = input.changedFiles.map((file) => file.path);
+  const runtimeEquivalentPaths = new Set(input.runtimeEquivalentPaths ?? []);
   const boundariesByFile = new Map<string, Set<BoundaryKind>>();
   for (const fact of input.boundaries?.boundaries ?? []) {
     const kinds = boundariesByFile.get(fact.file) ?? new Set<BoundaryKind>();
@@ -205,6 +208,23 @@ export function classifyChangeSet(
     );
   }
 
+  // CHG-002: the compiler emitted identical runtime code for both revisions.
+  // Type-level compatibility still belongs to the repository typecheck.
+  if (runtimeEquivalentPaths.size > 0) {
+    classes.push(
+      classification(
+        "CHG-002",
+        "derived",
+        "high",
+        [...runtimeEquivalentPaths],
+        "Before and after TypeScript revisions emit identical JavaScript.",
+      ),
+    );
+    limitations.push(
+      "Runtime-emit equivalence does not prove type-level API compatibility; run the repository typecheck.",
+    );
+  }
+
   // CHG-004: added non-test source files without boundary facts.
   const addedPurePaths = input.changedFiles
     .filter(
@@ -212,6 +232,7 @@ export function classifyChangeSet(
         file.status === "added" &&
         JS_TS_SOURCE_PATTERN.test(file.path) &&
         !isTestFilePath(file.path) &&
+        !runtimeEquivalentPaths.has(file.path) &&
         !boundariesByFile.has(file.path),
     )
     .map((file) => file.path);
@@ -235,7 +256,8 @@ export function classifyChangeSet(
     (path) =>
       SECURITY_PATH_PATTERN.test(path) &&
       JS_TS_SOURCE_PATTERN.test(path) &&
-      !isTestFilePath(path),
+      !isTestFilePath(path) &&
+      !runtimeEquivalentPaths.has(path),
   );
   if (securityPaths.length > 0) {
     classes.push(
@@ -254,7 +276,8 @@ export function classifyChangeSet(
     (path) =>
       CONCURRENCY_PATH_PATTERN.test(path) &&
       JS_TS_SOURCE_PATTERN.test(path) &&
-      !isTestFilePath(path),
+      !isTestFilePath(path) &&
+      !runtimeEquivalentPaths.has(path),
   );
   if (concurrencyPaths.length > 0) {
     classes.push(
@@ -270,7 +293,10 @@ export function classifyChangeSet(
 
   // Unsupported boundaries this layer cannot establish for source changes.
   const sourceChanged = changedPaths.some(
-    (path) => JS_TS_SOURCE_PATTERN.test(path) && !isTestFilePath(path),
+    (path) =>
+      JS_TS_SOURCE_PATTERN.test(path) &&
+      !isTestFilePath(path) &&
+      !runtimeEquivalentPaths.has(path),
   );
   if (sourceChanged) {
     limitations.push(

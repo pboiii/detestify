@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node 22.13 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.13"
+          cache: npm
+      - run: npm ci
+      - run: npm run test:pr
+
+      - name: Smoke-test packed CLI
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          pack_json="$RUNNER_TEMP/npm-pack.json"
+          npm pack --json > "$pack_json"
+          tarball="$GITHUB_WORKSPACE/$(node -e "const p=require(process.argv[1]); if (p.length !== 1) process.exit(1); process.stdout.write(p[0].filename)" "$pack_json")"
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          smoke_dir="$(mktemp -d)"
+
+          cd "$smoke_dir"
+          npm init --yes >/dev/null
+          npm install "$tarball"
+          cli="$smoke_dir/node_modules/.bin/detestify"
+          "$cli" --help >/dev/null
+          test "$("$cli" --version)" = "$package_version"
+          "$cli" doctor --json=- > doctor.json
+          node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8'))" doctor.json
+          npm uninstall "$package_name"
+          test ! -e "$cli"

@@ -1,5 +1,5 @@
 schema_version: '1.0'
-name: test-steward-alpha-dual-host-canary
+name: detestify-alpha-dual-host-canary
 status: DECIDED
 schedule:
 - nightly
@@ -8,38 +8,40 @@ hosts:
 - id: claude
   certification: live-command-hook
   tasks:
-  - task-01-doc-only
-  - task-02-refactor-churn
-  - task-03-boundary-bug
-  - task-04-legacy-cleanup
+  - docs
+  - bug
+  - type-only
+  - pagination
   arms:
   - baseline
   - full
-  max_repetitions_per_task_arm: 3
+  max_repetitions_per_task_arm: 1
+  auth_mode: subscription
   caps:
-    max_runs: 24
-    max_wall_clock_hours: 12
-    max_api_equivalent_usd: 250
+    max_runs: 8
+    max_wall_clock_hours: 1
+    max_api_equivalent_usd: null
 - id: codex
   certification: live-command-hook
   tasks:
-  - task-01-doc-only
-  - task-02-refactor-churn
-  - task-03-boundary-bug
-  - task-04-legacy-cleanup
+  - docs
+  - bug
+  - type-only
+  - pagination
   arms:
   - baseline
   - full
-  max_repetitions_per_task_arm: 3
+  max_repetitions_per_task_arm: 1
+  auth_mode: subscription
   caps:
-    max_runs: 24
-    max_wall_clock_hours: 12
-    max_api_equivalent_usd: 250
+    max_runs: 8
+    max_wall_clock_hours: 1
+    max_api_equivalent_usd: null
 total_caps:
-  max_runs: 48
-  max_api_equivalent_usd: 500
+  max_runs: 16
+  max_api_equivalent_usd: null
 reservation_policy:
-  before_run: reserve one run, remaining host wall-clock allowance, and estimated API-equivalent cost
+  before_run: reserve one run and the remaining host wall-clock allowance
   on_cap_risk: skip the run and record budget_exhausted; never exceed the cap
   recalibration: requires measured evidence, an entry in spec/conflicts.md, and owner approval
 comparison:
@@ -54,18 +56,20 @@ comparison:
   - hook_false_positive_rate
   - bounded_remediation_success
   - agent_wall_time
-  - api_equivalent_cost_usd
 alpha_success:
-  per_host: no hidden-fault regression and reduced unnecessary creation or churn versus baseline on at least 3 of
-    4 tasks
+  compatibility: docs and bug pass in both arms, no full arm regresses, full arms record Detestify hook invocations,
+    and baseline arms record none
+  product_direction: type-only changes no tests in either arm; pagination full passes, does not add a test path over baseline,
+    and its edited owning suite fails against the buggy source
+  claim_limit: one repetition provides directional real-repository evidence, not a statistical efficacy rate
   required_hosts:
   - claude
   - codex
 artifacts:
 - run manifest
 - repository diff
-- raw Test Steward reports
+- Detestify reports
 - host hook receipts
 - oracle outcomes
-- timing and cost receipts
+- timing and subscription-authentication receipts
 - limitations and infrastructure errors

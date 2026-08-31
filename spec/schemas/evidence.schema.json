@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://test-steward.dev/schemas/evidence.schema.json",
   "title": "Evidence record",
-  "description": "A typed fact, execution result, or limitation used by Test Steward.",
+  "description": "A typed fact, execution result, or limitation used by Detestify.",
   "type": "object",
   "additionalProperties": false,
   "required": [

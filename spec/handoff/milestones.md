@@ -155,13 +155,13 @@ npm run test:pr
 
 ## M6 — Claude certified Stop wrapper
 
-**Entry:** M5 green and live Claude payload capture available.  
+**Entry:** M5 green and a fresh bounded Claude receipt is available.
 **Governed by:** ADR-005 and `hosts/claude-hook-package.md`.
 
 Deliver:
 
 - plugin manifest and hooks;
-- raw payload redaction/storage;
+- representative normalization fixtures and private bounded receipts without raw payload retention;
 - normalized events;
 - event-specific output translation;
 - atomic one-shot remediation state;
@@ -180,14 +180,14 @@ Prove initial Stop requests at most one continuation and repeated Stop exits wit
 
 ## M7 — Codex certified Stop wrapper
 
-**Entry:** M5 green and live Codex CLI/desktop payload captures available.  
+**Entry:** M5 green and a fresh bounded Codex receipt is available.
 **Governed by:** ADR-005 and `hosts/codex-hook-package.md`.
 
 Deliver:
 
 - `.codex-plugin` manifest and hook package;
 - plugin trust-hash workflow;
-- raw/normalized fixtures;
+- representative normalized fixtures and private bounded receipts without raw payload retention;
 - event-specific output translation;
 - one-shot Stop and SubagentStop behavior;
 - explicit unsupported `task_complete` capability;
@@ -236,9 +236,11 @@ Task 04 protected evidence and static-only counterexamples must pass.
 
 Deliver:
 
-- baseline/full runs on Claude and Codex;
+- one baseline/full pair for the `docs` and `bug` tasks on Claude and Codex using existing subscriptions;
+- one baseline/full pair for the runtime-equivalent `type-only` and owning-suite `pagination` tasks on both hosts;
+- one real-repository cleanup replay that removes a candidate only after retained-only historical-fault detection matches candidate-only detection;
 - per-host metrics and limitations;
-- budget receipts;
+- run-cap, timing, authentication-mode, and hook receipts;
 - final TypeScript threshold measurements;
 - macOS/Linux clean install/uninstall;
 - SBOM/provenance/release notes.
@@ -251,4 +253,4 @@ npm run benchmark:canary -- --host claude
 npm run benchmark:canary -- --host codex
 ```
 
-For each host: no hidden-fault regression and reduced unnecessary creation/churn on at least three of four tasks. Both bounded Stop proofs pass. Public alpha claims exclude native Windows and any untested host version.
+For each host, the compatibility tasks pass in both arms, no full arm regresses, full arms record Detestify hook invocations, and baselines record none. Product-focused tasks must avoid test paths for runtime-equivalent changes and reuse the owning suite for the real bug. One repetition per arm is directional evidence only. Both bounded Stop proofs pass. Public alpha claims exclude native Windows and any untested host version.

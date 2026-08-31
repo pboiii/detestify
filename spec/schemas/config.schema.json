@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://test-steward.dev/schemas/config.schema.json",
-  "title": "Test Steward configuration",
-  "description": "Configuration for the six-command Test Steward alpha. Repository configuration is untrusted until explicitly approved.",
+  "title": "Detestify configuration",
+  "description": "Configuration for the six-command Detestify alpha. Repository configuration is untrusted until explicitly approved.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -50,19 +50,19 @@
       ],
       "properties": {
         "run_repository_commands": {
-          "description": "Whether Test Steward may execute repository-defined commands.",
+          "description": "Whether Detestify may execute repository-defined commands.",
           "type": "boolean"
         },
         "evaluate_repository_config": {
-          "description": "Whether Test Steward may load executable test-runner or build configuration.",
+          "description": "Whether Detestify may load executable test-runner or build configuration.",
           "type": "boolean"
         },
         "install_dependencies": {
-          "description": "Whether Test Steward may install dependencies. Alpha defaults to false.",
+          "description": "Whether Detestify may install dependencies. Alpha defaults to false.",
           "type": "boolean"
         },
         "network_access": {
-          "description": "Whether Test Steward may make outbound network requests. Alpha defaults to false.",
+          "description": "Whether Detestify may make outbound network requests. Alpha defaults to false.",
           "type": "boolean"
         },
         "mutation": {
@@ -70,7 +70,7 @@
           "type": "boolean"
         },
         "create_hooks": {
-          "description": "Whether Test Steward may write host hook configuration.",
+          "description": "Whether Detestify may write host hook configuration.",
           "type": "boolean"
         }
       }
@@ -219,6 +219,7 @@
             "auto",
             "vitest",
             "jest",
+            "node:test",
             "unknown"
           ]
         },

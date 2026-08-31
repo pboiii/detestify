@@ -1,7 +1,7 @@
 # Alpha CLI contract
 
-**Status:** DECIDED  
-**Executable name:** working package name `test-steward`  
+**Status:** DECIDED
+**Executable name:** `detestify`
 **Output:** concise terminal text plus a versioned JSON report unless `--json=-` requests JSON on stdout.
 
 ## Common invariants
@@ -38,7 +38,7 @@
 
 ### Purpose
 
-Answer whether the current diff appears to require a new persistent test, an update to existing evidence, no new test, or more information.
+Answer whether the current diff appears to require a new persistent test, an update to existing evidence, no test edit because existing evidence is sufficient, no new test, or more information.
 
 ### Inputs
 
@@ -51,6 +51,7 @@ Answer whether the current diff appears to require a new persistent test, an upd
 `report.schema.json` with `command: "plan --diff"` and change outcomes:
 
 - `NO_TEST_SUPPORTED`
+- `EXISTING_EVIDENCE_SUFFICIENT`
 - `EXISTING_TEST_UPDATE_CANDIDATE`
 - `NEW_TEST_CANDIDATE`
 - `INSUFFICIENT_EVIDENCE`

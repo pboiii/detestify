@@ -1,29 +1,91 @@
-# Test Steward (working name)
+# Detestify
 
-An evidence-backed test-portfolio policy engine for coding agents: the smallest defensible test portfolio for the risks the software actually carries. The specification is complete, and milestone M0 provides the package scaffold and read-only `doctor` command.
+Detestify keeps target repositories' test portfolios as small as their evidence safely permits. While an agent codes, it decides whether the change needs a new test, an update to existing evidence, no persistent test, or more information. For existing suites, it identifies exact removal paths only after retained tests prove they preserve the same repository-owned behavior.
 
-## Layout
+The alpha supports JavaScript and TypeScript repositories on macOS and Linux with Node.js 22.13 or newer. Claude Code and Codex plugins use the same policy engine.
 
-- `spec/` — the canonical, validated specification tree (309 files): ADRs, JSON Schemas with examples, policy rulebook and golden cases, four benchmark fixture repositories with hidden oracles, Claude/Codex host packages, skill draft, threat model, and the implementation handoff under `spec/handoff/`.
-- `planning/` — historical planning documents: the owner ruling and the ChatGPT Pro work-package briefs (v1 superseded, v2 executed).
-- `archive/` — the original checksum-verified handoff archive the `spec/` tree was extracted from.
+## Install
 
-## Status
+Install the exact alpha from a trusted directory, then run it against your repository:
 
-- Specification: complete and independently re-validated (schemas, examples, goldens, fixtures, YAML — 364 checks, 0 failures).
-- Implementation: milestones M0–M5 and M8 complete — all six commands real (`plan --diff`, `verify-change`, `inventory`, `audit`, `cleanup-plan`, `doctor`), hook layer with Claude and Codex adapters and one-shot Stop remediation, read-only cleanup planner. `npm run test:pr` runs the full deterministic suite (99 policy goldens, hook contracts, cleanup safety, security, fixture CLI on tasks 01–04) green.
-- ADR-002 threshold measurements (warm macOS, 2026-08-28): no-op p95 282 ms (< 500 ms), zero-config `plan --diff` p95 769 ms (< 2000 ms), byte-deterministic reports verified, clean `npx` execution from the packed tarball verified. Linux measurements pending.
-- Not yet claimed: M9 dual-host canary, live host payload captures, and certification — see `spec/handoff/open-register.md` and `spec/conflicts.md`.
-- Implementation entry point: `spec/handoff/IMPLEMENTATION_BRIEF.md`, milestones in `spec/handoff/milestones.md`.
+```sh
+npm install --global detestify@0.1.0-alpha.0
+detestify plan --repo /path/to/repository --diff
+```
 
-## M0 development
+The first run is read-only. It reads Git state, inert package metadata, and TypeScript structure. It does not run repository commands, install dependencies, edit files, create hooks, or use the network.
 
-The package requires Node.js 22.13 or later. Install the exact locked dependencies without lifecycle scripts, build, and run the read-only compatibility check:
+The six alpha commands are:
+
+```text
+detestify plan --diff
+detestify verify-change
+detestify inventory
+detestify audit
+detestify cleanup-plan
+detestify doctor
+```
+
+`verify-change` runs repository tests only when an explicitly passed JSON configuration grants repository command execution, executable config loading, and network access together. Discovered repository configuration cannot grant that trust.
+
+## Historical cleanup proof
+
+`cleanup-plan` can replay repository-owned, source-only historical faults in temporary copies. The manifest must bind each fix commit to its exact source paths and preregister an expected failure substring. Detestify then compares only the proposed removal tests with only their retained replacements:
+
+```json
+{
+  "version": "1.0",
+  "faults": [
+    {
+      "id": "EMAIL-TRIM-REGRESSION",
+      "obligation_ids": ["OBL-EMAIL-NORMALIZATION"],
+      "fix_commit": "0123456789abcdef0123456789abcdef01234567",
+      "source_paths": ["src/email.ts"],
+      "expected_failure_substring": "email normalization fault"
+    }
+  ]
+}
+```
+
+```sh
+detestify cleanup-plan \
+  --config .detestify/config.json \
+  --historical-faults .detestify/historical-faults.json \
+  --candidate <candidate-id> \
+  --exclude-test <candidate-test-path>
+```
+
+The command never changes the source repository. A deletion candidate still requires a structural signal, direct imports of every declared source path from both test groups, one matching preregistered failure observable in the candidate-only and retained-only runs, passing protection checks, and human review. An unrelated fault or a different failure observable cannot promote deletion. Detestify has no cleanup apply command.
+
+## Host plugins
+
+Builds and npm packages include self-contained plugins. Review every hook before trusting it; hooks run with your user permissions and are not a sandbox.
+
+Claude Code:
+
+```sh
+claude plugin marketplace add pboiii/detestify --scope user
+claude plugin install detestify@detestify --scope user
+```
+
+Codex:
+
+```sh
+codex plugin marketplace add pboiii/detestify
+codex plugin add detestify@detestify
+```
+
+Open `/hooks` in a fresh host session and review the exact installed definitions. See `plugins/claude/README.md` and `plugins/openai/README.md` for trust and uninstall details.
+
+## Development
 
 ```sh
 npm ci --ignore-scripts
 npm run build
-node dist/bin/test-steward.js doctor --json=-
+npm run test:pr
+node dist/bin/detestify.js doctor --json=-
 ```
 
-`doctor` loads schemas from the packaged `schemas/` copy. It does not run repository scripts, load executable configuration, install hooks, use telemetry, or make runtime network calls. An optional `--config` path must name a contained, inert JSON file that validates against `config.schema.json`.
+`spec/` is the canonical policy and host contract. `planning/` and `archive/` preserve the implementation history.
+
+Licensed under Apache-2.0.

@@ -3,36 +3,24 @@
 // npm script (TM-003/TM-009). Focused selection uses `--runTestsByPath` with
 // the affected files; structured results come from `--json --outputFile`.
 
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { readContainedRegularFile } from "../../repository/paths.js";
 import {
-  parseJestFormatResults,
+  parseSelectedJestFormatResults,
   runFixedArgv,
   runnerEnvironment,
   type RunnerResults,
 } from "./process.js";
 import {
   readRunnerVersion,
-  RunnerUnavailableError,
   type RunnerInvocation,
   type RunnerRunOptions,
 } from "./vitest.js";
+import { resolveRunnerExecution } from "./workspace.js";
 
-export const JEST_ENTRY = "node_modules/jest/bin/jest.js";
-
-/** Resolve the repository's Jest entry, or null when it is not installed. */
-export async function resolveJestEntry(
-  repoRoot: string,
-): Promise<string | null> {
-  const entry = path.join(repoRoot, JEST_ENTRY);
-  try {
-    await access(entry);
-    return entry;
-  } catch {
-    return null;
-  }
-}
+const RESULT_FILE_MAX_BYTES = 8 * 1024 * 1024;
 
 /** Fixed Jest argv: CI mode, JSON results to a file, exact focused paths. */
 export function buildJestArgs(
@@ -54,40 +42,61 @@ export function buildJestArgs(
 export async function runJest(
   options: RunnerRunOptions,
 ): Promise<RunnerInvocation> {
-  const entry = await resolveJestEntry(options.repoRoot);
-  if (entry === null) {
-    throw new RunnerUnavailableError(
-      "jest",
-      `Jest entry ${JEST_ENTRY} is not installed in the repository.`,
-    );
-  }
+  const execution = await resolveRunnerExecution(
+    options.repoRoot,
+    "jest",
+    options.testFiles,
+  );
   const scratch = await mkdtemp(path.join(tmpdir(), "test-steward-jest-"));
   const outputFile = path.join(scratch, "results.json");
-  const args = buildJestArgs(entry, options.testFiles, outputFile);
+  const args = buildJestArgs(
+    execution.entry,
+    execution.executionTestFiles,
+    outputFile,
+  );
   try {
     const outcome = await runFixedArgv({
       file: process.execPath,
       args,
-      cwd: options.repoRoot,
+      cwd: execution.executionRoot,
       env: runnerEnvironment(),
       timeoutMs: options.timeoutMs,
     });
     let results: RunnerResults | null = null;
+    let selectedFilesCovered: boolean | null = null;
     if (!outcome.timedOut) {
       try {
-        results = parseJestFormatResults(await readFile(outputFile, "utf8"));
+        const document = await readContainedRegularFile(
+          scratch,
+          "results.json",
+          RESULT_FILE_MAX_BYTES,
+        );
+        const parsed = parseSelectedJestFormatResults(
+          document.toString("utf8"),
+          execution.executionRoot,
+          execution.executionTestFiles,
+        );
+        results = parsed?.results ?? null;
+        selectedFilesCovered = parsed?.selectedFilesCovered ?? null;
       } catch {
-        results = parseJestFormatResults(outcome.stdout.trim());
+        const parsed = parseSelectedJestFormatResults(
+          outcome.stdout.trim(),
+          execution.executionRoot,
+          execution.executionTestFiles,
+        );
+        results = parsed?.results ?? null;
+        selectedFilesCovered = parsed?.selectedFilesCovered ?? null;
       }
     }
     return {
       runner: "jest",
-      version: await readRunnerVersion(options.repoRoot, "jest"),
+      version: await readRunnerVersion(execution.executionRoot, "jest"),
       argv: [process.execPath, ...args],
-      cwd: options.repoRoot,
-      testFiles: options.testFiles,
+      cwd: execution.executionRoot,
+      testFiles: execution.repositoryTestFiles,
       outcome,
       results,
+      selectedFilesCovered,
     };
   } finally {
     await rm(scratch, { recursive: true, force: true }).catch(() => undefined);

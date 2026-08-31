@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.13"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run test:pr
+
+      - name: Verify tag and smoke-test packed CLI
+        id: pack
+        shell: bash
+        run: |
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          test "$GITHUB_REF_NAME" = "v$package_version"
+
+          pack_json="$RUNNER_TEMP/npm-pack.json"
+          npm pack --json > "$pack_json"
+          tarball="$GITHUB_WORKSPACE/$(node -e "const p=require(process.argv[1]); if (p.length !== 1) process.exit(1); process.stdout.write(p[0].filename)" "$pack_json")"
+          smoke_dir="$(mktemp -d)"
+
+          cd "$smoke_dir"
+          npm init --yes >/dev/null
+          npm install "$tarball"
+          cli="$smoke_dir/node_modules/.bin/detestify"
+          "$cli" --help >/dev/null
+          test "$("$cli" --version)" = "$package_version"
+          "$cli" doctor --json=- > doctor.json
+          node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8'))" doctor.json
+          npm uninstall "$package_name"
+          test ! -e "$cli"
+
+          {
+            echo "package_name=$package_name"
+            echo "package_version=$package_version"
+            echo "tarball=$tarball"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate production SBOM
+        shell: bash
+        run: npm sbom --omit=dev --sbom-format=cyclonedx > "$RUNNER_TEMP/detestify.cdx.json"
+
+      - name: Publish alpha to npm
+        run: npm publish "${{ steps.pack.outputs.tarball }}" --access public --tag alpha --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          "${{ steps.pack.outputs.tarball }}"
+          "$RUNNER_TEMP/detestify.cdx.json"
+          --verify-tag
+          --generate-notes
+          --title "${{ steps.pack.outputs.package_name }} ${{ steps.pack.outputs.package_version }}"

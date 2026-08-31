@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { realpath } from "node:fs/promises";
@@ -33,6 +40,23 @@ async function git(cwd: string, args: string[]): Promise<string> {
 
 async function initRepo(directory: string): Promise<void> {
   await git(directory, ["init", "--initial-branch=main"]);
+}
+
+async function isProcessRunning(pid: number): Promise<boolean> {
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return false;
+  }
+  if (process.platform !== "linux") {
+    return true;
+  }
+  try {
+    const stat = await readFile(`/proc/${pid}/stat`, "utf8");
+    return stat[stat.lastIndexOf(")") + 2] !== "Z";
+  } catch {
+    return false;
+  }
 }
 
 let workspace = "";
@@ -202,13 +226,12 @@ describe("git subprocess bounds", () => {
       expect(Date.now() - started).toBeLessThan(5_000);
 
       // The descendant sleep must be dead too (TM-016).
-      const { readFile } = await import("node:fs/promises");
       const sleeperPid = Number.parseInt(
         (await readFile(pidFile, "utf8")).trim(),
         10,
       );
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
-      expect(() => process.kill(sleeperPid, 0)).toThrow();
+      expect(await isProcessRunning(sleeperPid)).toBe(false);
     } finally {
       process.env.PATH = realPath;
     }

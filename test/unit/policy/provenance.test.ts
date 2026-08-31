@@ -1,7 +1,7 @@
 // Provenance labeling: obligation candidates carry exactly one primary
 // provenance class derived from what backs the determination, evidence
-// records always carry limitations, and an existing covering test selects
-// EXISTING_TEST_UPDATE_CANDIDATE.
+// records always carry limitations, and existing evidence distinguishes an
+// unchanged sufficient test from one that needs an update.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -105,5 +105,57 @@ describe("provenance labeling", () => {
     expect(decision.outcome).toBe("EXISTING_TEST_UPDATE_CANDIDATE");
     expect(decision.target.test_path).toBe("test/integration/webhook.test.ts");
     expect(decision.target.scope).toBe("integration");
+  });
+
+  it("marks proven existing evidence sufficient without requesting a test edit", () => {
+    const { decision, obligation } = decideRule(
+      det({
+        observedRefs: ["reproduction:retry-after-claim"],
+        sufficientExistingTestPath: "test/integration/webhook.test.ts",
+        sufficientExistingObligationRefs: ["reproduction:retry-after-claim"],
+        sufficientExistingFailureClass: "boundary-regression",
+      }),
+      { ...baseOptions, mode: "strict" },
+    );
+    expect(obligation?.materiality.evidence_gap).toBe("none");
+    expect(decision).toMatchObject({
+      outcome: "EXISTING_EVIDENCE_SUFFICIENT",
+      gate_action: "allow",
+      remediation: null,
+      target: {
+        scope: "integration",
+        purpose: "regression",
+        technique: "existing_evidence",
+        test_path: "test/integration/webhook.test.ts",
+      },
+    });
+  });
+
+  it("does not accept unbound existing evidence as sufficient", () => {
+    const { decision, obligation } = decideRule(
+      det({
+        observedRefs: ["reproduction:retry-after-claim"],
+        sufficientExistingTestPath: "test/integration/webhook.test.ts",
+      }),
+      { ...baseOptions, mode: "strict" },
+    );
+    expect(decision.outcome).toBe("EXISTING_TEST_UPDATE_CANDIDATE");
+    expect(decision.target.test_path).toBe("test/integration/webhook.test.ts");
+    expect(decision.limitations).toContainEqual(
+      expect.stringContaining("not explicitly bound"),
+    );
+    expect(obligation?.materiality.evidence_gap).not.toBe("none");
+  });
+
+  it("rejects contradictory existing-evidence dispositions", () => {
+    expect(() =>
+      decideRule(
+        det({
+          existingTestPath: "test/integration/webhook.test.ts",
+          sufficientExistingTestPath: "test/integration/webhook.test.ts",
+        }),
+        baseOptions,
+      ),
+    ).toThrow(/cannot require an existing-test update/);
   });
 });

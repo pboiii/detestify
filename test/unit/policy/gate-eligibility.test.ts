@@ -106,6 +106,13 @@ describe("gate eligibility (ADR-004)", () => {
       determination({
         ruleId: "TST-003",
         observedRefs: ["reproduction:retry-after-claim"],
+        resolvedTarget: {
+          scope: "integration",
+          purpose: "regression",
+          technique: "example",
+          cadence: "pull_request",
+          failure_class: "retry-after-failed-claim",
+        },
       }),
       options({ mode: "balanced" }),
     );

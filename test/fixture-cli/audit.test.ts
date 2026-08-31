@@ -43,7 +43,7 @@ beforeAll(async () => {
   const jsonPath = path.join(workDir, "audit.json");
   exitCode = await main([
     "node",
-    "test-steward",
+    "detestify",
     "audit",
     "--repo",
     repoDir,

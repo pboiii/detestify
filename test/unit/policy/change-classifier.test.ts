@@ -124,6 +124,23 @@ describe("classifyChangeSet", () => {
     expect(result.limitations.join("\n")).toMatch(/CHG-003/);
   });
 
+  it("classifies compiler-proven runtime equivalence as CHG-002", () => {
+    const result = classifyChangeSet({
+      changedFiles: [changed("src/upload-scheduler.ts")],
+      runtimeEquivalentPaths: ["src/upload-scheduler.ts"],
+    });
+    expect(result.classes).toEqual([
+      expect.objectContaining({
+        ruleId: "CHG-002",
+        provenance: "derived",
+        confidence: "high",
+      }),
+    ]);
+    expect(result.classes.map((entry) => entry.ruleId)).not.toContain(
+      "CHG-008",
+    );
+  });
+
   it("reports an empty change set as a limitation", () => {
     expect(classifyChangeSet({ changedFiles: [] })).toEqual({
       classes: [],

@@ -4,3 +4,5 @@ spec
 planning
 archive
 package-lock.json
+plugins/*/runtime
+.ai-bridge

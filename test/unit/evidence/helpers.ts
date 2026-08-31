@@ -14,9 +14,9 @@ export function stewardConfig(
     mode: "balanced",
     trusted_operations: {
       run_repository_commands: true,
-      evaluate_repository_config: false,
+      evaluate_repository_config: true,
       install_dependencies: false,
-      network_access: false,
+      network_access: true,
       mutation: false,
       create_hooks: false,
     },

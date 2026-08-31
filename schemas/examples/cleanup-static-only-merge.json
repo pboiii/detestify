@@ -11,13 +11,16 @@
     {
       "id": "cand-static-overlap",
       "test_paths": ["test/formatter-a.test.ts", "test/formatter-b.test.ts"],
+      "remove_paths": [],
+      "retain_paths": [],
       "action": "MERGE_CANDIDATE",
       "obligation_ids": [],
+      "obligation_preservation": [],
       "structural_signals": ["ev-similar-ast", "ev-shared-assertion-shape"],
       "independent_signals": [],
       "protected_checks": [
         {
-          "source": ".test-steward/protected-tests.json",
+          "source": ".detestify/protected-tests.json",
           "passed": true,
           "detail": "No protected record references either path."
         }
@@ -25,6 +28,9 @@
       "counterfactual": {
         "status": "not_run",
         "commands_ref": null,
+        "candidate_id": null,
+        "remove_paths": [],
+        "retain_paths": [],
         "preserved_obligations": [],
         "limitations": ["Repository commands were not trusted."]
       },

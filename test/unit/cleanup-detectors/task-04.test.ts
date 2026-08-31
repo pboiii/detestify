@@ -132,7 +132,7 @@ describe("task-04 fixture detections", () => {
 
   it("carries protected-record identity: paths match protected-tests.json", async () => {
     const raw = await readFile(
-      path.join(FIXTURE_ROOT, ".test-steward/protected-tests.json"),
+      path.join(FIXTURE_ROOT, ".detestify/protected-tests.json"),
       "utf8",
     );
     const protectedRecord = JSON.parse(raw) as {
@@ -181,12 +181,15 @@ describe("schema shaping", () => {
       candidates: detections.map((detection) => ({
         id: detection.id,
         test_paths: [...detection.test_paths],
+        remove_paths: [],
+        retain_paths: [],
         action: "INSUFFICIENT_EVIDENCE",
         obligation_ids: [],
+        obligation_preservation: [],
         ...schemaSignals(detection.signals),
         protected_checks: [
           {
-            source: ".test-steward/protected-tests.json",
+            source: ".detestify/protected-tests.json",
             passed: true,
             detail:
               "Not evaluated by detectors; protection is the planner's job.",
@@ -195,6 +198,9 @@ describe("schema shaping", () => {
         counterfactual: {
           status: "not_run",
           commands_ref: null,
+          candidate_id: null,
+          remove_paths: [],
+          retain_paths: [],
           preserved_obligations: [],
           limitations: ["Detector output only."],
         },

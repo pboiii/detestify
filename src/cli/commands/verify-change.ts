@@ -36,6 +36,8 @@ import {
   listRepositoryFiles,
 } from "../../repository/discovery.js";
 import { analyzeTests, isTestFilePath } from "../../analysis/tests.js";
+import { hasEquivalentRuntimeEmit } from "../../analysis/typescript.js";
+import { runtimeEquivalentTypeScriptPaths } from "../../analysis/runtime-equivalence.js";
 import {
   buildReportChange,
   evaluatePlanStage,
@@ -52,6 +54,7 @@ import {
   type RunnerInvocation,
 } from "../../evidence/runners/vitest.js";
 import { runJest } from "../../evidence/runners/jest.js";
+import { runNodeTest } from "../../evidence/runners/node-test.js";
 import {
   buildReceipt,
   receiptEvidence,
@@ -66,7 +69,7 @@ const JS_TS_SOURCE_PATTERN = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
 /** Throw the frozen CLI dispatch's exit-code pass-through error. */
 function exitWith(code: ExitCode, message: string): never {
-  throw new CommanderError(code, "test-steward.notImplemented", message);
+  throw new CommanderError(code, "detestify.notImplemented", message);
 }
 
 interface Verification {
@@ -74,6 +77,9 @@ interface Verification {
   readonly receipt: VerificationReceipt | null;
   readonly receiptPath: string | null;
   readonly usedAst: boolean;
+  readonly selectionComplete: boolean;
+  readonly selectedFilesCovered: boolean | null;
+  readonly runnerResolution: "unavailable" | "unsupported" | null;
   readonly limitations: readonly string[];
   /** Deferred non-zero exit after the report is written, or null. */
   readonly pendingExit: { code: ExitCode; message: string } | null;
@@ -89,6 +95,7 @@ async function selectAffectedTests(
 ): Promise<{
   selection: string[];
   usedAst: boolean;
+  selectionComplete: boolean;
   limitations: string[];
 }> {
   const limitations: string[] = [];
@@ -103,7 +110,10 @@ async function selectAffectedTests(
       .map((file) => file.path),
   );
 
-  const selected = new Set(changedTestFiles);
+  const runnableTests = new Set(testFiles);
+  const selected = new Set(
+    changedTestFiles.filter((file) => runnableTests.has(file)),
+  );
   let usedAst = false;
   if (changedSources.size > 0 && testFiles.length > 0) {
     try {
@@ -143,20 +153,22 @@ async function selectAffectedTests(
   }
 
   let selection = [...selected].sort();
+  let selectionComplete = true;
   if (selection.length > MAX_SELECTED_TEST_FILES) {
     limitations.push(
       `Selection was capped at ${MAX_SELECTED_TEST_FILES} of ${selection.length} test files.`,
     );
     selection = selection.slice(0, MAX_SELECTED_TEST_FILES);
+    selectionComplete = false;
   }
-  return { selection, usedAst, limitations };
+  return { selection, usedAst, selectionComplete, limitations };
 }
 
 async function runVerification(input: {
   readonly root: string;
   readonly base: string | undefined;
   readonly trust: LoadedTrust;
-  readonly runner: "vitest" | "jest" | "unknown" | "none";
+  readonly runner: "vitest" | "jest" | "node:test" | "unknown" | "none";
   readonly testFiles: readonly string[];
   readonly sourceFiles: readonly string[];
   readonly snapshot: RepositorySnapshot;
@@ -172,23 +184,33 @@ async function runVerification(input: {
       receipt: null,
       receiptPath: null,
       usedAst: false,
+      selectionComplete: true,
+      selectedFilesCovered: null,
+      runnerResolution: null,
       limitations: [
-        "Repository command execution is not trusted; verify-change ran in report-only mode and executed no tests. Grant trust with an explicitly passed --config whose trusted_operations.run_repository_commands is true.",
+        "Repository command execution is not trusted; verify-change ran in report-only mode and executed no tests. Grant trust with an explicitly passed --config whose trusted_operations.run_repository_commands, evaluate_repository_config, and network_access are all true.",
       ],
       pendingExit: null,
     };
   }
 
-  if (input.runner !== "vitest" && input.runner !== "jest") {
+  if (
+    input.runner !== "vitest" &&
+    input.runner !== "jest" &&
+    input.runner !== "node:test"
+  ) {
     const detail =
       input.runner === "none"
-        ? "No supported test runner (Vitest or Jest) was detected."
-        : "Both Vitest and Jest markers are present; the runner selection is ambiguous.";
+        ? "No supported test runner (Vitest, Jest, or node:test) was detected."
+        : "Test runner markers conflict or include unsupported tooling; only Vitest, Jest, and node:test can be executed.";
     return {
       mode: "no-tests",
       receipt: null,
       receiptPath: null,
       usedAst: false,
+      selectionComplete: true,
+      selectedFilesCovered: null,
+      runnerResolution: null,
       limitations: [detail],
       pendingExit: {
         code: EXIT_CODES.UNSUPPORTED_REPOSITORY,
@@ -200,6 +222,7 @@ async function runVerification(input: {
   const {
     selection,
     usedAst,
+    selectionComplete,
     limitations: selectionLimitations,
   } = await selectAffectedTests(
     input.root,
@@ -216,6 +239,9 @@ async function runVerification(input: {
       receipt: null,
       receiptPath: null,
       usedAst,
+      selectionComplete,
+      selectedFilesCovered: null,
+      runnerResolution: null,
       limitations: [
         ...limitations,
         "No test files were discovered; nothing was executed.",
@@ -226,7 +252,12 @@ async function runVerification(input: {
 
   let invocation: RunnerInvocation;
   try {
-    const run = input.runner === "vitest" ? runVitest : runJest;
+    const run =
+      input.runner === "vitest"
+        ? runVitest
+        : input.runner === "jest"
+          ? runJest
+          : runNodeTest;
     invocation = await run({
       repoRoot: input.root,
       testFiles: selection,
@@ -239,9 +270,15 @@ async function runVerification(input: {
         receipt: null,
         receiptPath: null,
         usedAst,
+        selectionComplete,
+        selectedFilesCovered: null,
+        runnerResolution: error.reason,
         limitations: [...limitations, error.message],
         pendingExit: {
-          code: EXIT_CODES.EXTERNAL_TOOL_UNAVAILABLE,
+          code:
+            error.reason === "unsupported"
+              ? EXIT_CODES.UNSUPPORTED_REPOSITORY
+              : EXIT_CODES.EXTERNAL_TOOL_UNAVAILABLE,
           message: error.message,
         },
       };
@@ -255,6 +292,9 @@ async function runVerification(input: {
       receipt: null,
       receiptPath: null,
       usedAst,
+      selectionComplete,
+      selectedFilesCovered: null,
+      runnerResolution: null,
       limitations: [...limitations, invocation.outcome.spawnError],
       pendingExit: {
         code: EXIT_CODES.EXTERNAL_TOOL_UNAVAILABLE,
@@ -269,6 +309,13 @@ async function runVerification(input: {
   );
   const endFingerprint = (await fingerprintDiff(endSnapshot)).fingerprint;
 
+  const selectedFilesCovered = invocation.selectedFilesCovered ?? null;
+  const coverageLimitations =
+    selectedFilesCovered === false
+      ? [
+          "The runner's structured results did not exactly cover every selected test file; excluded, omitted, or extra files make this run insufficient evidence.",
+        ]
+      : [];
   const receipt = buildReceipt({
     invocation,
     repoRoot: input.root,
@@ -276,9 +323,15 @@ async function runVerification(input: {
     headRevision: input.snapshot.headRevision,
     timeoutMs: RUN_TIMEOUT_MS,
     envKeys: Object.keys(runnerEnvironment()).sort(),
+    policyFingerprint: input.trust.policyFingerprint,
     diffFingerprintStart: input.startFingerprint,
     diffFingerprintEnd: endFingerprint,
+    selectionComplete,
+    limitations: coverageLimitations,
   });
+  limitations.push(
+    "Repository code ran with network access; network_used is conservatively true because outbound use cannot be observed by the runner.",
+  );
   const receiptPath = await writeReceipt(input.stateDir, receipt);
 
   let pendingExit: Verification["pendingExit"] = null;
@@ -299,6 +352,9 @@ async function runVerification(input: {
     receipt,
     receiptPath,
     usedAst,
+    selectionComplete,
+    selectedFilesCovered,
+    runnerResolution: null,
     limitations: [...limitations, ...receipt.limitations],
     pendingExit,
   };
@@ -339,6 +395,38 @@ function verificationDecision(input: {
     },
     cleanup_requirements: null,
   };
+
+  if (receipt !== null && !verification.selectionComplete) {
+    return {
+      ...base,
+      outcome: "INSUFFICIENT_EVIDENCE",
+      gate_action: "advise",
+      confidence: "low",
+      reason_code: "SELECTION_CAPPED",
+      summary:
+        "Affected-test selection exceeded the execution cap; the passing subset cannot verify the current diff.",
+      rationale:
+        "The focused run was bounded to a subset of affected tests, so omitted tests leave verification evidence incomplete.",
+      remediation: null,
+      limitations: [...verification.limitations],
+    };
+  }
+
+  if (receipt !== null && verification.selectedFilesCovered === false) {
+    return {
+      ...base,
+      outcome: "INSUFFICIENT_EVIDENCE",
+      gate_action: "advise",
+      confidence: "low",
+      reason_code: "SELECTED_TEST_FILES_NOT_EXECUTED",
+      summary:
+        "The runner did not report exactly the selected test files, so the run cannot verify the change.",
+      rationale:
+        "Structured runner output omitted or added at least one file relative to the focused selection; a successful process exit cannot replace exact file-level execution evidence.",
+      remediation: null,
+      limitations: [...verification.limitations],
+    };
+  }
 
   if (receipt !== null && !receipt.stale && receipt.results !== null) {
     if (receipt.passed) {
@@ -384,7 +472,7 @@ function verificationDecision(input: {
       rationale: `A trusted ${receipt.runner} run on the analyzed tree observed ${failed} failing test${failed === 1 ? "" : "s"}${firstFailure === undefined ? "" : `, first: ${firstFailure.name}`}.`,
       remediation:
         action === "request_remediation"
-          ? `Fix the change (or the test contract) so the ${failed} failing focused test${failed === 1 ? "" : "s"} pass${failed === 1 ? "es" : ""}, then re-run test-steward verify-change to produce a passing receipt.`.slice(
+          ? `Fix the change (or the test contract) so the ${failed} failing focused test${failed === 1 ? "" : "s"} pass${failed === 1 ? "es" : ""}, then re-run detestify verify-change to produce a passing receipt.`.slice(
               0,
               1500,
             )
@@ -429,6 +517,27 @@ function verificationDecision(input: {
     };
   }
 
+  if (verification.runnerResolution !== null) {
+    return {
+      ...base,
+      outcome: "INSUFFICIENT_EVIDENCE",
+      gate_action: "advise",
+      confidence: "low",
+      reason_code:
+        verification.runnerResolution === "unsupported"
+          ? "WORKSPACE_RUNNER_UNSUPPORTED"
+          : "WORKSPACE_RUNNER_UNAVAILABLE",
+      summary:
+        verification.runnerResolution === "unsupported"
+          ? "The selected tests do not have one supported workspace-local execution root."
+          : "No workspace-local runner installation can execute every selected test.",
+      rationale:
+        "Detestify does not use package scripts or another workspace's runner as fallback evidence.",
+      remediation: null,
+      limitations: [...verification.limitations],
+    };
+  }
+
   // Report-only / nothing executed: the plan-stage verdict carries the
   // remediation eligibility (materiality + ADR-004 gates).
   const strongest = plan.strongestDecision;
@@ -449,7 +558,7 @@ function verificationDecision(input: {
       rationale: strongest.rationale,
       remediation:
         strongest.remediation ??
-        "Add the required evidence, then re-run test-steward verify-change.",
+        "Add the required evidence, then re-run detestify verify-change.",
       limitations: [...verification.limitations],
     };
   }
@@ -523,6 +632,10 @@ export async function run(options: CommandOptions): Promise<void> {
     trust,
     observedAt: generatedAt,
     changedTestFiles,
+    runtimeEquivalentPaths: await runtimeEquivalentTypeScriptPaths(
+      snapshot,
+      hasEquivalentRuntimeEmit,
+    ),
     idPrefix: "verify-change-plan",
   });
 
@@ -538,7 +651,7 @@ export async function run(options: CommandOptions): Promise<void> {
     base: options.base,
     trust,
     runner: shape.runner,
-    testFiles: shape.testFiles,
+    testFiles: shape.runnerTestFiles,
     sourceFiles: shape.sourceFiles,
     snapshot,
     startFingerprint: diff.fingerprint,
@@ -603,7 +716,7 @@ export async function run(options: CommandOptions): Promise<void> {
       coverage: optional.coverage,
       mutation: optional.mutation,
       repository_commands_trusted: trust.runRepositoryCommands,
-      network_used: false,
+      network_used: verification.mode === "trusted-run",
     },
     obligation_candidates: plan.obligations,
     evidence,

@@ -1,7 +1,9 @@
 {
-  "name": "test-steward",
-  "version": "0.0.0-alpha.0",
+  "name": "detestify",
+  "version": "0.1.0-alpha.0",
   "description": "Evidence-backed test portfolio guidance and bounded verification",
-  "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "author": {
+    "name": "Detestify"
+  },
+  "skills": "./skills/"
 }

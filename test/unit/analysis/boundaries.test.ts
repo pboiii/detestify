@@ -11,7 +11,7 @@ beforeAll(async () => {
   await mkdir(path.join(repoRoot, "src/routes"), { recursive: true });
   await mkdir(path.join(repoRoot, "db/migrations"), { recursive: true });
   await mkdir(path.join(repoRoot, ".github/workflows"), { recursive: true });
-  await mkdir(path.join(repoRoot, ".test-steward"), { recursive: true });
+  await mkdir(path.join(repoRoot, ".detestify"), { recursive: true });
   await mkdir(path.join(repoRoot, "generated"), { recursive: true });
 
   await writeFile(
@@ -58,7 +58,7 @@ beforeAll(async () => {
     "on: push\n",
   );
   await writeFile(
-    path.join(repoRoot, ".test-steward", "protected-tests.json"),
+    path.join(repoRoot, ".detestify", "protected-tests.json"),
     "[]\n",
   );
   await writeFile(
@@ -177,17 +177,17 @@ describe("boundary analysis", () => {
       files: [
         "vite.config.ts",
         ".github/workflows/ci.yml",
-        ".test-steward/protected-tests.json",
+        ".detestify/protected-tests.json",
       ],
     });
     const configs = boundaries.filter((fact) => fact.kind === "config");
     expect(configs).toEqual([
-      { file: ".github/workflows/ci.yml", kind: "config", path: "CI workflow" },
       {
-        file: ".test-steward/protected-tests.json",
+        file: ".detestify/protected-tests.json",
         kind: "config",
-        path: "test-steward configuration",
+        path: "Detestify configuration",
       },
+      { file: ".github/workflows/ci.yml", kind: "config", path: "CI workflow" },
       { file: "vite.config.ts", kind: "config", path: "config module" },
     ]);
   });

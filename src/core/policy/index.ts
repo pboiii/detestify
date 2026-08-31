@@ -1,6 +1,6 @@
 // Policy engine (M3 core): turn a rule determination into an obligation
 // candidate with explicit provenance, a schema-shaped evidence record with
-// limitations always present, and one of the four change-plan outcomes —
+// limitations always present, and one of the five change-plan outcomes —
 // applying the ordinal materiality tables and the ADR-004 gate rules
 // literally. Semantic and non-automatable rules degrade to advisory
 // INSUFFICIENT_EVIDENCE unless declared or observed provenance backs the
@@ -28,6 +28,7 @@ import {
   POLICY_RULES_BY_ID,
   type PolicyRule,
   type RuleAction,
+  type RuleTarget,
 } from "./rules.js";
 
 export type RuleApplicability = "applies" | "not_applies" | "ambiguous";
@@ -48,6 +49,14 @@ export interface RuleDetermination {
   readonly fallbackProvenance?: Extract<Provenance, "derived" | "inferred">;
   /** Existing covering test path; selects EXISTING_TEST_UPDATE_CANDIDATE. */
   readonly existingTestPath?: string;
+  /** Evidence target resolved from the observed failure mechanism and boundary. */
+  readonly resolvedTarget?: RuleTarget;
+  /** Existing test proven sufficient without an edit. */
+  readonly sufficientExistingTestPath?: string;
+  /** Obligation or observed-failure references explicitly covered by that test. */
+  readonly sufficientExistingObligationRefs?: readonly string[];
+  /** Failure class explicitly covered by that test. */
+  readonly sufficientExistingFailureClass?: string;
   /** Override for the evidence gap axis (defaults: recommend "material", no_test "none"). */
   readonly evidenceGap?: EvidenceGap;
   /** Extra decision limitations already known to the caller. */
@@ -169,6 +178,16 @@ function buildEvidence(
   };
 }
 
+function targetMatchesConstraints(
+  target: RuleTarget,
+  constraints: Partial<RuleTarget> | undefined,
+): boolean {
+  if (constraints === undefined) return true;
+  return Object.entries(constraints).every(
+    ([key, value]) => target[key as keyof RuleTarget] === value,
+  );
+}
+
 /**
  * Decide one rule determination. Returns the decision plus the obligation
  * candidate and evidence record it references.
@@ -177,12 +196,42 @@ export function decideRule(
   det: RuleDetermination,
   options: PolicyOptions,
 ): PolicyEvaluation {
+  if (
+    det.existingTestPath !== undefined &&
+    det.sufficientExistingTestPath !== undefined
+  ) {
+    throw new Error(
+      "A rule determination cannot require an existing-test update and mark existing evidence sufficient",
+    );
+  }
+  if (
+    det.sufficientExistingTestPath !== undefined &&
+    det.evidenceGap !== undefined &&
+    det.evidenceGap !== "none"
+  ) {
+    throw new Error(
+      "Sufficient existing evidence requires evidenceGap to be none",
+    );
+  }
+
   const rule = getRule(det.ruleId);
   const mode = options.mode ?? "advisory";
   const elevatedRuleIds = options.elevatedRuleIds ?? [];
   const provenance = deriveProvenance(det);
   const evidence = buildEvidence(det, provenance, options);
   const baseLimitations = det.limitations ?? [];
+  const obligationRefs = new Set([
+    ...(det.declaredRefs ?? []),
+    ...(det.observedRefs ?? []),
+  ]);
+  const sufficientObligationRefs = new Set(
+    det.sufficientExistingObligationRefs ?? [],
+  );
+  const resolvedTarget = det.resolvedTarget ?? rule.target;
+  const targetMismatch =
+    resolvedTarget !== null &&
+    !targetMatchesConstraints(resolvedTarget, rule.targetConstraints);
+  const recommendTarget = targetMismatch ? null : resolvedTarget;
 
   // Semantic and non-automatable rules must not act on their own judgment:
   // without declared or observed provenance the documented degraded outcome
@@ -203,22 +252,41 @@ export function decideRule(
     : det.applicability === "applies"
       ? rule.appliesAction
       : rule.notAppliesAction;
+  const sufficientExistingEvidence =
+    action === "recommend" &&
+    det.sufficientExistingTestPath !== undefined &&
+    det.sufficientExistingFailureClass !== undefined &&
+    recommendTarget !== null &&
+    det.sufficientExistingFailureClass === recommendTarget.failure_class &&
+    obligationRefs.size > 0 &&
+    [...obligationRefs].every((reference) =>
+      sufficientObligationRefs.has(reference),
+    ) &&
+    (provenance === "declared" || provenance === "observed");
+  const existingTestPath =
+    det.existingTestPath ??
+    (sufficientExistingEvidence ? undefined : det.sufficientExistingTestPath);
 
   const confidenceAxis = PROVENANCE_TO_AXIS[provenance];
   let axes: MaterialityAxes;
   let distinctChangedObligation: boolean;
-  let recommendTarget: PolicyRule["target"] = null;
   if (action === "recommend") {
-    if (rule.obligationAxes === null || rule.target === null) {
-      throw new Error(`Rule ${rule.id} recommends but declares no target`);
+    if (rule.obligationAxes === null) {
+      throw new Error(`Rule ${rule.id} recommends but declares no obligation`);
     }
-    recommendTarget = rule.target;
     axes = {
       ...rule.obligationAxes,
-      evidence_gap: det.evidenceGap ?? "material",
+      evidence_gap:
+        recommendTarget === null
+          ? "unknown"
+          : sufficientExistingEvidence
+            ? "none"
+            : det.sufficientExistingTestPath === undefined
+              ? (det.evidenceGap ?? "material")
+              : "material",
       confidence: confidenceAxis,
     };
-    distinctChangedObligation = true;
+    distinctChangedObligation = recommendTarget !== null;
   } else if (action === "no_test") {
     axes = {
       consequence: "negligible",
@@ -248,37 +316,76 @@ export function decideRule(
     ruleId: rule.id,
     elevatedRuleIds,
   });
-  const gateAction = allowedGateAction({
+  const materialityGateAction = allowedGateAction({
     tier,
     provenance,
     mode,
     gateEligible,
   });
 
-  const outcome =
-    tier === "T0"
-      ? "NO_TEST_SUPPORTED"
+  const outcome = sufficientExistingEvidence
+    ? "EXISTING_EVIDENCE_SUFFICIENT"
+    : action === "recommend" && recommendTarget === null
+      ? "INSUFFICIENT_EVIDENCE"
       : tier === "TU"
         ? "INSUFFICIENT_EVIDENCE"
-        : det.existingTestPath !== undefined
-          ? "EXISTING_TEST_UPDATE_CANDIDATE"
-          : "NEW_TEST_CANDIDATE";
+        : tier === "T0"
+          ? "NO_TEST_SUPPORTED"
+          : existingTestPath !== undefined
+            ? "EXISTING_TEST_UPDATE_CANDIDATE"
+            : "NEW_TEST_CANDIDATE";
+
+  const gateAction =
+    outcome === "EXISTING_EVIDENCE_SUFFICIENT"
+      ? "allow"
+      : materialityGateAction;
 
   const target: DecisionTarget =
-    (outcome === "NEW_TEST_CANDIDATE" ||
-      outcome === "EXISTING_TEST_UPDATE_CANDIDATE") &&
-    recommendTarget !== null
-      ? { ...recommendTarget, test_path: det.existingTestPath ?? null }
-      : NULL_TARGET;
+    outcome === "EXISTING_EVIDENCE_SUFFICIENT"
+      ? recommendTarget === null
+        ? {
+            ...NULL_TARGET,
+            technique: "existing_evidence",
+            cadence: "completion",
+            test_path: det.sufficientExistingTestPath ?? null,
+          }
+        : {
+            ...recommendTarget,
+            technique: "existing_evidence",
+            test_path: det.sufficientExistingTestPath ?? null,
+          }
+      : (outcome === "NEW_TEST_CANDIDATE" ||
+            outcome === "EXISTING_TEST_UPDATE_CANDIDATE") &&
+          recommendTarget !== null
+        ? { ...recommendTarget, test_path: existingTestPath ?? null }
+        : NULL_TARGET;
 
-  const limitations =
-    outcome === "INSUFFICIENT_EVIDENCE"
-      ? [...baseLimitations, rule.lowConfidenceBehavior]
-      : [...baseLimitations];
+  const limitations = [...baseLimitations];
+  if (action === "recommend" && recommendTarget === null) {
+    limitations.push(
+      targetMismatch
+        ? "The supplied evidence target conflicts with the policy rule constraints."
+        : "The observed failure mechanism and boundary do not resolve a minimum sufficient evidence target.",
+    );
+  }
+  if (
+    det.sufficientExistingTestPath !== undefined &&
+    !sufficientExistingEvidence
+  ) {
+    limitations.push(
+      "Existing evidence was not marked sufficient because it was not explicitly bound to this obligation and failure class.",
+    );
+  }
+  if (outcome === "INSUFFICIENT_EVIDENCE") {
+    limitations.push(rule.lowConfidenceBehavior);
+  }
 
   const remediation =
     gateAction === "request_remediation" && target.scope !== null
-      ? `Add ${target.scope}-scope ${target.purpose ?? "functional"} evidence covering ${target.failure_class ?? "the changed obligation"} (${rule.id}).`
+      ? outcome === "EXISTING_TEST_UPDATE_CANDIDATE" &&
+        target.test_path !== null
+        ? `Inspect and update ${target.test_path} for ${target.failure_class ?? "the changed obligation"} (${rule.id}); do not add a separate test unless it detects a distinct failure mechanism.`
+        : `Add ${target.scope}-scope ${target.purpose ?? "functional"} evidence covering ${target.failure_class ?? "the changed obligation"} (${rule.id}).`
       : null;
 
   // ADR-004 unknown provenance: no credible obligation can be identified, so
@@ -302,7 +409,7 @@ export function decideRule(
           materiality: { ...axes, tier },
           gate_eligible: gateEligible,
           rationale: options.presentation.rationale,
-          limitations: [...baseLimitations],
+          limitations: [...limitations],
         };
 
   const decision: Decision = {

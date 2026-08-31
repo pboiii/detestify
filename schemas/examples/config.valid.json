@@ -16,7 +16,7 @@
       "path": "test/webhook.contract.test.ts",
       "reason": "Guards externally reachable signature and retry behavior.",
       "obligation_ids": ["webhook.authenticity", "webhook.retry-idempotency"],
-      "source": ".test-steward/protected-tests.json"
+      "source": ".detestify/protected-tests.json"
     }
   ],
   "declared_obligations": [

@@ -76,6 +76,12 @@ const workedExamples: readonly WorkedExample[] = [
     tier: "T4",
   },
   {
+    name: "8: protected cross-system contract already covered",
+    axes: ["irreversible", "cross_system", "boundary", "none", "explicit"],
+    distinct: true,
+    tier: "T3",
+  },
+  {
     name: "9: static similarity only",
     axes: ["degraded", "user_facing", "pure_behavior", "unknown", "unknown"],
     distinct: true,

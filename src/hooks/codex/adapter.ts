@@ -8,8 +8,7 @@ import {
   type NormalizedDecision,
   type NormalizedInvocation,
 } from "../normalized.js";
-import { redactJson, redactText } from "../../security/redaction.js";
-import { limitModelVisibleFields } from "../../security/limits.js";
+import { redactJson } from "../../security/redaction.js";
 
 const CODEX_EVENT_MAP: Readonly<Record<string, HookEvent>> = {
   SessionStart: "session_start",
@@ -133,65 +132,48 @@ export async function normalizeCodexInput(
 
 export interface HostOutput {
   readonly stdout: string | null;
+  readonly stderr: string | null;
   readonly exitCode: 0 | 2;
 }
 
-/** Codex events whose documented output accepts additionalContext. */
-const CODEX_CONTEXT_EVENTS: ReadonlySet<HookEvent> = new Set([
-  "session_start",
-  "after_tool",
-  "subagent_stop",
-  "turn_stop",
-]);
+const ALLOW: HostOutput = { stdout: null, stderr: null, exitCode: 0 };
 
 const CODEX_BLOCK_EVENTS: ReadonlySet<HookEvent> = new Set([
   "turn_stop",
   "subagent_stop",
 ]);
 
-function boundedText(
-  summary: string,
-  primary: string | null,
-): { summary: string; primary: string } {
-  const { fields } = limitModelVisibleFields({ summary, reason: primary });
-  return {
-    summary: fields.summary ?? summary,
-    primary: fields.reason ?? primary ?? summary,
+const CODEX_CONTEXT_EVENT_NAMES: Readonly<Partial<Record<HookEvent, string>>> =
+  {
+    session_start: "SessionStart",
+    after_tool: "PostToolUse",
   };
+
+function feedback(decision: NormalizedDecision, action: string): string {
+  return `Detestify ${action} (${decision.reason_code}). Run detestify verify-change for details.`;
 }
 
-function codexAdvice(
-  event: HookEvent,
-  decision: NormalizedDecision,
-  extraLimitation?: string,
-): HostOutput {
-  const { summary } = boundedText(decision.summary, decision.remediation);
-  const limitations = [
-    ...decision.limitations,
-    ...(extraLimitation !== undefined ? [extraLimitation] : []),
-  ];
-  if (CODEX_CONTEXT_EVENTS.has(event)) {
-    const text = [
-      redactText(summary),
-      decision.report_path !== null ? `Report: ${decision.report_path}` : null,
-      limitations.length > 0 ? `Limitations: ${limitations.join("; ")}` : null,
-    ]
-      .filter((part): part is string => part !== null)
-      .join("\n");
+function advice(event: HookEvent, decision: NormalizedDecision): HostOutput {
+  const hookEventName = CODEX_CONTEXT_EVENT_NAMES[event];
+  if (hookEventName === undefined) {
     return {
       stdout: `${JSON.stringify({
-        decision: "allow",
-        additionalContext: text,
+        systemMessage: feedback(decision, "reported guidance"),
       })}\n`,
+      stderr: null,
       exitCode: 0,
     };
   }
-  // Codex requires JSON on stdout for Stop-family events; plain text otherwise.
-  const lines = [`Test Steward advice: ${redactText(summary)}`];
-  if (decision.report_path !== null) {
-    lines.push(`Report: ${decision.report_path}`);
-  }
-  return { stdout: `${lines.join("\n")}\n`, exitCode: 0 };
+  return {
+    stdout: `${JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName,
+        additionalContext: feedback(decision, "reported guidance"),
+      },
+    })}\n`,
+    stderr: null,
+    exitCode: 0,
+  };
 }
 
 /**
@@ -202,51 +184,38 @@ export function translateCodexDecision(
   event: HookEvent,
   decision: NormalizedDecision,
 ): HostOutput {
-  const { primary } = boundedText(decision.summary, decision.remediation);
-
   if (decision.action === "allow") {
-    return {
-      stdout: CODEX_BLOCK_EVENTS.has(event)
-        ? `${JSON.stringify({ decision: "allow" })}\n`
-        : null,
-      exitCode: 0,
-    };
+    return ALLOW;
   }
 
   if (decision.action === "advise") {
-    return codexAdvice(event, decision);
+    return advice(event, decision);
   }
 
   if (decision.action === "deny_tool") {
     if (event !== "before_tool") {
-      return codexAdvice(
-        event,
-        { ...decision, remediation: null },
-        `deny_tool is not supported on ${event}; degraded to advice.`,
-      );
+      return advice(event, decision);
     }
     return {
       stdout: `${JSON.stringify({
         decision: "block",
-        reason: redactText(primary),
+        reason: feedback(decision, "denied this tool call"),
       })}\n`,
+      stderr: null,
       exitCode: 0,
     };
   }
 
   // request_remediation
   if (!CODEX_BLOCK_EVENTS.has(event)) {
-    return codexAdvice(
-      event,
-      { ...decision, remediation: null },
-      `request_remediation is not supported on ${event}; degraded to advice.`,
-    );
+    return advice(event, decision);
   }
   return {
     stdout: `${JSON.stringify({
       decision: "block",
-      reason: redactText(primary),
+      reason: feedback(decision, "requires verification before completion"),
     })}\n`,
+    stderr: null,
     exitCode: 0,
   };
 }

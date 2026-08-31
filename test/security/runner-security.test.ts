@@ -16,8 +16,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run as runVerifyChange } from "../../src/cli/commands/verify-change.js";
+import { runJest } from "../../src/evidence/runners/jest.js";
 import { runFixedArgv } from "../../src/evidence/runners/process.js";
-import { buildReceipt } from "../../src/evidence/receipts.js";
+import { buildReceipt, stateDirectory } from "../../src/evidence/receipts.js";
+import { runVitest } from "../../src/evidence/runners/vitest.js";
 import type { RunnerInvocation } from "../../src/evidence/runners/vitest.js";
 import { snapshotRepository } from "../../src/repository/git.js";
 import { fingerprintDiff } from "../../src/repository/fingerprint.js";
@@ -61,7 +63,102 @@ async function waitFor(
   return predicate();
 }
 
+async function runResultFileAttack(
+  runner: "vitest" | "jest",
+  attack: "oversized" | "escaping-symlink",
+): Promise<RunnerInvocation> {
+  const repo = path.join(scratch, `${runner}-${attack}`);
+  const entry = path.join(
+    repo,
+    runner === "vitest"
+      ? "node_modules/vitest/vitest.mjs"
+      : "node_modules/jest/bin/jest.js",
+  );
+  await mkdir(path.dirname(entry), { recursive: true });
+  await mkdir(path.join(repo, "test"), { recursive: true });
+  await writeFile(path.join(repo, "package.json"), "{}", "utf8");
+  await writeFile(path.join(repo, "test", "a.test.ts"), "", "utf8");
+  const outputSetup =
+    runner === "vitest"
+      ? 'import { symlinkSync, writeFileSync } from "node:fs";'
+      : 'const { symlinkSync, writeFileSync } = require("node:fs");';
+  const resultFileAction =
+    attack === "oversized"
+      ? "writeFileSync(output, Buffer.alloc(8 * 1024 * 1024 + 1, 0x61));"
+      : 'symlinkSync("/dev/zero", output);';
+  await writeFile(
+    entry,
+    `${outputSetup}
+const outputArg = process.argv.find((arg) => arg.startsWith("--outputFile="));
+if (outputArg === undefined) throw new Error("missing output file");
+const output = outputArg.slice("--outputFile=".length);
+${resultFileAction}
+`,
+    "utf8",
+  );
+  const options = {
+    repoRoot: repo,
+    testFiles: ["test/a.test.ts"],
+    timeoutMs: 5_000,
+  };
+  return runner === "vitest" ? runVitest(options) : runJest(options);
+}
+
 describe("hostile package.json scripts never run (TM-003/TM-009)", () => {
+  it("an explicit partial grant cannot launch repository code", async () => {
+    const repo = path.join(scratch, "partial-grant");
+    const canary = path.join(scratch, "partial-grant-ran");
+    await mkdir(path.join(repo, "src"), { recursive: true });
+    await mkdir(path.join(repo, "test"), { recursive: true });
+    await mkdir(path.join(repo, "node_modules", "vitest"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(repo, "package.json"),
+      JSON.stringify({
+        name: "partial-grant",
+        private: true,
+        devDependencies: { vitest: "1.0.0" },
+      }),
+    );
+    await writeFile(path.join(repo, "src", "a.ts"), "export const a = 1;\n");
+    await writeFile(
+      path.join(repo, "test", "a.test.ts"),
+      "test('a', () => {});\n",
+    );
+    await writeFile(
+      path.join(repo, "node_modules", "vitest", "vitest.mjs"),
+      `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(canary)}, "ran");\n`,
+    );
+    await initGitRepo(repo);
+    await writeFile(path.join(repo, "src", "a.ts"), "export const a = 2;\n");
+
+    const baseConfig = stewardConfig({ mode: "advisory" });
+    const configPath = await writeConfigFile(repo, "steward.json", {
+      ...baseConfig,
+      trusted_operations: {
+        ...(baseConfig["trusted_operations"] as Record<string, unknown>),
+        evaluate_repository_config: false,
+      },
+    });
+    const reportPath = path.join(scratch, "partial-grant-report.json");
+    await runVerifyChange({ repo, config: configPath, report: reportPath });
+
+    await expect(access(canary)).rejects.toThrow();
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+      capabilities: {
+        repository_commands_trusted: boolean;
+        network_used: boolean;
+      };
+      limitations: string[];
+    };
+    expect(report.capabilities.repository_commands_trusted).toBe(false);
+    expect(report.capabilities.network_used).toBe(false);
+    expect(
+      report.limitations.some((entry) => entry.includes("report-only")),
+    ).toBe(true);
+  }, 30_000);
+
   it("trusted verify-change never falls back to npm scripts", async () => {
     const repo = path.join(scratch, "hostile");
     const canary = path.join(scratch, "canary-pwned");
@@ -123,7 +220,7 @@ describe("hostile package.json scripts never run (TM-003/TM-009)", () => {
     await expect(access(canary)).rejects.toThrow();
 
     // The report still exists and discloses the limitation.
-    const reportsDir = path.join(repo, ".test-steward", "reports");
+    const reportsDir = path.join(stateDirectory(repo), "reports");
     const { readdir } = await import("node:fs/promises");
     const reports = (await readdir(reportsDir)).filter(
       (name) => name.endsWith(".json") && !name.startsWith("."),
@@ -133,9 +230,22 @@ describe("hostile package.json scripts never run (TM-003/TM-009)", () => {
       await readFile(path.join(reportsDir, reports[0]!), "utf8"),
     ) as { limitations: string[] };
     expect(
-      report.limitations.some((entry) => entry.includes("not installed")),
+      report.limitations.some((entry) => entry.includes("workspace-local")),
     ).toBe(true);
   }, 30_000);
+});
+
+describe("runner result files stay bounded and contained", () => {
+  for (const runner of ["vitest", "jest"] as const) {
+    for (const attack of ["oversized", "escaping-symlink"] as const) {
+      it(`${runner} returns no results for an ${attack} result file`, async () => {
+        const invocation = await runResultFileAttack(runner, attack);
+
+        expect(invocation.outcome.exitCode).toBe(0);
+        expect(invocation.results).toBeNull();
+      }, 30_000);
+    }
+  }
 });
 
 describe("runner timeout kills the whole process group (TM-016)", () => {
@@ -221,8 +331,10 @@ describe("stale fingerprint detection (TM-004/TM-015)", () => {
       headRevision: null,
       timeoutMs: 1_000,
       envKeys: [],
+      policyFingerprint: startFp,
       diffFingerprintStart: startFp,
       diffFingerprintEnd: endFp,
+      selectionComplete: true,
     });
     // A fully passing run still may not claim verification on a mutated tree.
     expect(receipt.stale).toBe(true);
@@ -235,8 +347,10 @@ describe("stale fingerprint detection (TM-004/TM-015)", () => {
       headRevision: null,
       timeoutMs: 1_000,
       envKeys: [],
+      policyFingerprint: startFp,
       diffFingerprintStart: endFp,
       diffFingerprintEnd: endFp,
+      selectionComplete: true,
     });
     expect(unchanged.stale).toBe(false);
     expect(unchanged.passed).toBe(true);

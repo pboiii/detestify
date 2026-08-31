@@ -1,7 +1,7 @@
 # Naming and availability report
 
-**Status:** working-name decision is DECIDED; public namespace availability is UNVERIFIED until direct reservation checks.  
-**Access date:** 2026-08-28
+**Status:** `Detestify` is the selected public alpha name. Exact-name availability signals are favorable, but namespace reservation and legal clearance remain UNVERIFIED.
+**Access date:** 2026-08-30
 
 ## Method limitation
 
@@ -11,8 +11,8 @@ Search-engine results and unauthenticated registry pages can reveal obvious coll
 
 | Candidate | GitHub | npm | PyPI | crates.io | Homebrew | Domain / product red flags | Assessment |
 |---|---|---|---|---|---|---|---|
-| `test-steward` | UNVERIFIED; no obvious exact developer-tool collision surfaced | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | Descriptive; potential weak distinctiveness | **Primary working name** |
-| `detestify` | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | “detest” implies dislike and obscures portfolio-governance thesis | Reject |
+| `test-steward` | UNVERIFIED; no obvious exact developer-tool collision surfaced | Available signal only | UNVERIFIED | UNVERIFIED | UNVERIFIED | Descriptive; potential weak distinctiveness | Former internal/compatibility name |
+| `detestify` | `pboiii/detestify` exists privately | Exact package lookup returned not found | No exact package found | No exact package found | No exact formula found | Existing npm `detectify` and a live DETECTIFY software/security trademark are material similarity risks | **Selected public alpha name; no legal clearance** |
 | `proofwarden` | UNVERIFIED; no obvious exact collision surfaced | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | Distinctive but broader than testing | **Fallback** |
 | `suitewarden` | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | Generic suite/security connotation | Reserve only if primary/fallback unavailable |
 | `testwright` | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | Strong resemblance to Playwright naming | Reject |
@@ -24,10 +24,10 @@ Search-engine results and unauthenticated registry pages can reveal obvious coll
 
 ## Recommendation
 
-1. **Primary:** `Test Steward` / package candidate `test-steward`.
-2. **Fallback:** `Proofwarden` / package candidate `proofwarden`.
+1. **Selected alpha name:** `Detestify` / package candidate `detestify`.
+2. **Fallback:** `Proofwarden` / package candidate `proofwarden` only if the owner changes the name after legal review.
 
-The primary name most clearly communicates ongoing stewardship rather than one-time test generation. It matches the product’s lifecycle responsibility: create only justified tests, place them at the right boundary, maintain them, and retire them conservatively.
+`Detestify` is the public alpha decision. The earlier branding preference for `Test Steward` did not include direct namespace checks. The close-name npm package and trademark risk mean this report is not legal approval and must not be presented as clearance.
 
 ## Publication gate
 
@@ -40,7 +40,7 @@ Before any public repository, package, domain, or formula is announced, a human 
 - USPTO and relevant international red-flag search;
 - legal approval that the scan is sufficient for launch.
 
-If any primary namespace is unavailable, use `proofwarden` only after the same checks. Do not create divergent public names across registries merely to preserve `test-steward` somewhere.
+If `Detestify` cannot be used after review, choose a replacement before publication. Do not create divergent public names across registries merely to preserve `detestify` somewhere.
 
 ## Search sources
 

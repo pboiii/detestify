@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   PathContainmentError,
   normalizeRepositoryPath,
+  readContainedRegularFile,
   realpathContained,
 } from "../../src/repository/paths.js";
 import {
@@ -24,6 +25,7 @@ import {
 import { snapshotRepository } from "../../src/repository/git.js";
 import { fingerprintDiff } from "../../src/repository/fingerprint.js";
 import { analyzeTypeScript } from "../../src/analysis/typescript.js";
+import { detectExpiry } from "../../src/cleanup/detectors/expiry.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -46,6 +48,10 @@ beforeAll(async () => {
     path.join(repoRoot, "src/inside.ts"),
     "export const i = 1;\n",
   );
+  await execFileAsync("git", ["init", "--initial-branch=main"], {
+    cwd: repoRoot,
+  });
+  await execFileAsync("git", ["add", "src/inside.ts"], { cwd: repoRoot });
   await symlink(
     path.join(outsideDir, "secret.txt"),
     path.join(repoRoot, "escape-file"),
@@ -103,6 +109,21 @@ describe("symlink containment", () => {
   it("rejects a path through a symlinked directory that escapes the root", async () => {
     await expect(
       realpathContained(repoRoot, "escape-dir/secret.txt"),
+    ).rejects.toBeInstanceOf(PathContainmentError);
+  });
+
+  it("bounds contained regular-file reads", async () => {
+    const content = await readContainedRegularFile(
+      repoRoot,
+      "src/inside.ts",
+      1024,
+    );
+    expect(content.toString("utf8")).toContain("export const i");
+    await expect(
+      readContainedRegularFile(repoRoot, "src/inside.ts", 4),
+    ).rejects.toThrow(/read limit/);
+    await expect(
+      readContainedRegularFile(repoRoot, "escape-file", 1024),
     ).rejects.toBeInstanceOf(PathContainmentError);
   });
 });
@@ -165,7 +186,7 @@ describe("inert discovery security", () => {
 });
 
 describe("fingerprint symlink containment", () => {
-  it("excludes an escaping symlink from content hashing with a limitation", async () => {
+  it("hashes a symlink's own mode and target text without following it", async () => {
     const gitRoot = await mkdtemp(
       path.join(os.tmpdir(), "test-steward-fp-escape-"),
     );
@@ -180,8 +201,23 @@ describe("fingerprint symlink containment", () => {
       expect(
         snapshot.changedFiles.find((file) => file.path === "leak")?.status,
       ).toBe("untracked");
-      const diff = await fingerprintDiff(snapshot);
-      expect(diff.limitations.some((l) => l.includes("leak"))).toBe(true);
+      const before = await fingerprintDiff(snapshot);
+      expect(before.limitations).toEqual([]);
+
+      await writeFile(secret, "changed outside content\n");
+      const contentChanged = await fingerprintDiff(
+        await snapshotRepository(real),
+      );
+      expect(contentChanged.fingerprint).toBe(before.fingerprint);
+
+      const other = path.join(workspace, "outside", "other.txt");
+      await writeFile(other, "changed outside content\n");
+      await rm(path.join(real, "leak"));
+      await symlink(other, path.join(real, "leak"));
+      const targetChanged = await fingerprintDiff(
+        await snapshotRepository(real),
+      );
+      expect(targetChanged.fingerprint).not.toBe(before.fingerprint);
     } finally {
       await rm(gitRoot, { recursive: true, force: true });
     }
@@ -212,6 +248,36 @@ describe("analyzer symlink containment (TM-002/TM-005)", () => {
       expect(names).toContain("i");
     } finally {
       await rm(leaked, { force: true });
+    }
+  });
+});
+
+describe("expiry marker containment", () => {
+  it("does not read an expiry marker through an escaping symlink", async () => {
+    const markerDir = path.join(repoRoot, ".detestify");
+    const outsideMarker = path.join(outsideDir, "expiry.json");
+    await mkdir(markerDir, { recursive: true });
+    await writeFile(
+      outsideMarker,
+      JSON.stringify({
+        records: [
+          {
+            test_path: "test/leaked.test.ts",
+            expires_after: "2020-01-01",
+          },
+        ],
+      }),
+    );
+    const marker = path.join(markerDir, "expiry.json");
+    await symlink(outsideMarker, marker);
+    try {
+      const result = await detectExpiry(repoRoot, "2026-08-30");
+      expect(result.detections).toEqual([]);
+      expect(
+        result.limitations.some((entry) => entry.includes("No readable")),
+      ).toBe(true);
+    } finally {
+      await rm(marker);
     }
   });
 });

@@ -14,7 +14,12 @@ import {
 import type { MaterialityAxes } from "../core/model/index.js";
 import { snapshotRepository } from "../repository/git.js";
 import { fingerprintDiff } from "../repository/fingerprint.js";
-import { isTestFilePath } from "../analysis/tests.js";
+import { isRepositoryMutationTargetContained } from "../repository/paths.js";
+import { isTestFilePath } from "../analysis/test-path.js";
+import {
+  hasEquivalentNativeRuntimeEmit,
+  runtimeEquivalentTypeScriptPaths,
+} from "../analysis/runtime-equivalence.js";
 import {
   evaluatePlanStage,
   loadTrust,
@@ -27,7 +32,7 @@ import {
   type NormalizedDecision,
   type NormalizedInvocation,
 } from "./normalized.js";
-import type { HookDecider } from "./entry.js";
+import type { HookDecider, HookRuntimeContext } from "./entry.js";
 
 const STOP_EVENTS: ReadonlySet<HookEvent> = new Set([
   "turn_stop",
@@ -35,10 +40,17 @@ const STOP_EVENTS: ReadonlySet<HookEvent> = new Set([
   "task_complete",
 ]);
 
+const FILE_TARGET_TOOLS: ReadonlySet<string> = new Set([
+  "Edit",
+  "Write",
+  "MultiEdit",
+  "NotebookEdit",
+]);
+
 const GIT_BUDGET = { timeoutMs: 4_000 } as const;
 
 const NO_EXECUTION_LIMITATION =
-  "No test was executed from the hook; run test-steward verify-change for an executable receipt.";
+  "No test was executed from the hook; run detestify verify-change for an executable receipt.";
 
 const FAILING_RECEIPT_AXES: MaterialityAxes = {
   consequence: "degraded",
@@ -65,6 +77,51 @@ function allow(
   });
 }
 
+async function targetIsContained(
+  invocation: NormalizedInvocation,
+  target: string,
+): Promise<boolean> {
+  const repoRoot = invocation.repo_root;
+  return repoRoot === null
+    ? true
+    : isRepositoryMutationTargetContained(repoRoot, invocation.cwd, target);
+}
+
+async function decideBeforeTool(
+  invocation: NormalizedInvocation,
+  context: HookRuntimeContext | undefined,
+): Promise<NormalizedDecision> {
+  const toolName = invocation.tool.name;
+  const target = context?.toolTargetPath ?? null;
+  if (
+    toolName === null ||
+    !FILE_TARGET_TOOLS.has(toolName) ||
+    target === null ||
+    invocation.repo_root === null
+  ) {
+    return allow(
+      "EVENT_NOT_GATED",
+      "No concrete repository path violation was identified for this tool call.",
+    );
+  }
+  if (await targetIsContained(invocation, target)) {
+    return allow(
+      "TOOL_TARGET_CONTAINED",
+      "The tool target is contained within the repository root.",
+    );
+  }
+  return buildDecision({
+    action: "deny_tool",
+    confidence: "high",
+    reason_code: "TOOL_TARGET_OUTSIDE_REPOSITORY",
+    summary: "The tool target resolves outside the repository root.",
+    remediation: null,
+    report_path: null,
+    limitations: [],
+    loop_guard: { next_attempt: 0 },
+  });
+}
+
 async function decideStop(
   invocation: NormalizedInvocation,
 ): Promise<NormalizedDecision> {
@@ -85,12 +142,13 @@ async function decideStop(
   }
   const fingerprint = (await fingerprintDiff(snapshot)).fingerprint;
 
-  // Fingerprint check: a receipt for exactly this tree settles the verdict.
+  // A receipt settles the verdict only for this exact tree and policy.
   const stateDir = stateDirectory(repoRoot);
   const found = await latestReceipt(stateDir);
   if (
     found !== null &&
     found.receipt.diff_fingerprint_end === fingerprint &&
+    found.receipt.policy_fingerprint === trust.policyFingerprint &&
     !found.receipt.stale
   ) {
     if (found.receipt.passed) {
@@ -129,7 +187,7 @@ async function decideStop(
       summary: `The verification receipt for the current diff records ${failed ?? "unparsed"} failing focused test${failed === 1 ? "" : "s"}.`,
       remediation:
         action === "request_remediation"
-          ? "Fix the failing focused tests recorded in the verification receipt, then re-run test-steward verify-change to produce a passing receipt."
+          ? "Fix the failing focused tests recorded in the verification receipt, then re-run detestify verify-change to produce a passing receipt."
           : null,
       report_path: found.path,
       limitations: [],
@@ -147,10 +205,27 @@ async function decideStop(
     trust,
     observedAt: new Date().toISOString(),
     changedTestFiles,
+    runtimeEquivalentPaths: await runtimeEquivalentTypeScriptPaths(
+      snapshot,
+      hasEquivalentNativeRuntimeEmit,
+      GIT_BUDGET,
+    ),
     idPrefix: "hook-plan",
   });
   const strongest = plan.strongestDecision;
 
+  if (strongest?.outcome === "EXISTING_EVIDENCE_SUFFICIENT") {
+    return allow("EXISTING_EVIDENCE_SUFFICIENT", strongest.summary, [
+      NO_EXECUTION_LIMITATION,
+      ...strongest.limitations,
+    ]);
+  }
+  if (strongest?.outcome === "NO_TEST_SUPPORTED") {
+    return allow(strongest.reason_code, strongest.summary, [
+      NO_EXECUTION_LIMITATION,
+      ...strongest.limitations,
+    ]);
+  }
   if (strongest === null || plan.strongestAction === "allow") {
     return allow(
       "NO_MATERIAL_OBLIGATION",
@@ -167,7 +242,7 @@ async function decideStop(
       remediation: `${
         strongest.remediation ??
         "Add the required evidence for the changed obligation."
-      } Then run test-steward verify-change to record a passing receipt.`,
+      } Then run detestify verify-change to record a passing receipt.`,
       report_path: null,
       limitations: [NO_EXECUTION_LIMITATION, ...strongest.limitations],
       loop_guard: { next_attempt: 1 },
@@ -186,20 +261,23 @@ async function decideStop(
 }
 
 /** Core-connected decider wired as the default in the hook entry. */
-export const coreHookDecider: HookDecider = async (invocation) => {
-  if (!STOP_EVENTS.has(invocation.event)) {
-    return allow(
-      "EVENT_NOT_GATED",
-      "This lifecycle event is not gated by Test Steward.",
-    );
-  }
+export const coreHookDecider: HookDecider = async (invocation, context) => {
   try {
+    if (invocation.event === "before_tool") {
+      return await decideBeforeTool(invocation, context);
+    }
+    if (!STOP_EVENTS.has(invocation.event)) {
+      return allow(
+        "EVENT_NOT_GATED",
+        "This lifecycle event is not gated by Detestify.",
+      );
+    }
     return await decideStop(invocation);
   } catch (error) {
     // Fail open: a hook parse/Git/state failure never blocks the host.
     return allow(
       "CORE_UNAVAILABLE",
-      "Test Steward could not evaluate this repository; no verification claim is made.",
+      "Detestify could not evaluate this repository; no verification claim is made.",
       [
         `Fast-path evaluation failed: ${
           error instanceof Error ? error.message : String(error)

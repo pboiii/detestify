@@ -110,11 +110,28 @@ Measure with a monotonic clock:
 
 Report medians and distributions; do not collapse host results into one average.
 
-## 9. Alpha efficacy criterion
+## 9. Alpha launch-canary criterion
 
 For each certified host independently:
 
-1. hidden acceptance and valid-fault detection do not regress versus baseline; and
-2. the full arm reduces unnecessary test creation or test churn versus baseline on at least three of four tasks.
+1. the `docs` and `bug` task oracles pass in both baseline and full arms;
+2. the full arm does not regress against the baseline result;
+3. the full arm records Test Steward hook execution; and
+4. the baseline arm records no Test Steward hook execution.
 
-A task is counted as improved only when correctness gate 1 passes. Side-by-side Claude/Codex reporting is descriptive; one host cannot offset failure on the other.
+The alpha launch canary uses one repetition per arm with existing host subscriptions. The `docs` and `bug` tasks establish bounded launch compatibility. The `type-only` and `pagination` tasks probe the product's intended effect: avoid evidence for runtime-equivalent edits and reuse the owning suite for a real bug. One repetition is directional evidence, not a statistical efficacy claim. Side-by-side Claude/Codex reporting is descriptive; one host cannot offset failure on the other.
+
+## 10. Observed real-repository validation (2026-08-31)
+
+The product-focused A/B used identical prompts in baseline and Detestify arms on BrowserOS. Each arm used the existing host subscription and one repetition.
+
+| Host | Task | Baseline oracle | Detestify oracle | Baseline / Detestify changed test paths | Detestify hook receipts | Remediation requests |
+|---|---|---:|---:|---:|---:|---:|
+| Claude | runtime-equivalent type-only edit | pass | pass | 0 / 0 | 17 | 0 |
+| Codex | runtime-equivalent type-only edit | pass | pass | 0 / 0 | 41 | 0 |
+| Claude | cursor-pagination bug | fail | pass | 1 / 1 | 30 | 0 |
+| Codex | cursor-pagination bug | pass | pass | 1 / 1 | 37 | 0 |
+
+Both type-only Detestify arms emitted `RUNTIME_EMIT_UNCHANGED` and correctly avoided test churn. Every pagination arm reused `apps/claw-server/tests/services/tasks.test.ts`; none created a test file. The Claude Detestify test failed against the historical buggy source while the baseline test did not. Both Codex tests detected the bug; the Detestify arm added 21 test lines versus 23 in baseline. Claude added 19 versus 20. These four samples support the intended direction but do not establish a population-wide reduction rate.
+
+The backward pilot used `path-to-regexp` at `8877f41873e37a30258d3935feaf1d2679321735`. Detestify found a deliberately introduced near-duplicate of `src/index.spec.ts`, compared candidate-only with retained-only execution, and reverse-applied historical fix `b42b3d01cfb23bdb538b8e0f24905b4938d26665` to `src/index.ts`. Both groups produced the same preregistered failure observable, all protection checks passed, and the source fingerprint stayed unchanged. Removing `src/index-copy.spec.ts` reduced the selected boundary from two files and 766 passing tests to one file and 383 passing tests. This validates the removal mechanism; it does not estimate organic duplicate frequency.

@@ -18,6 +18,7 @@ import {
   SNAPSHOT_FILE_BYTE_LIMIT,
   type DetectorContext,
 } from "../../../src/cleanup/detectors/index.js";
+import { runGit } from "../../../src/repository/git.js";
 
 let repoRoot = "";
 let context: DetectorContext;
@@ -115,6 +116,18 @@ beforeAll(async () => {
       'it("reads a constant field", () => {',
       "  expect(config.port).toBe(8080);",
       "});",
+      'it("reads a plain object field", () => {',
+      "  const settings = { port: 8080 };",
+      "  expect(settings.port).toBe(8080);",
+      "});",
+    ].join("\n"),
+    "test/trivial-call-result-property.test.ts": [
+      VITEST_IMPORT,
+      'import { realThing } from "../src/real.js";',
+      'it("checks a repository call result", async () => {',
+      '  const response = await realThing("response");',
+      "  expect(response.length).toBe(8);",
+      "});",
     ].join("\n"),
     "test/trivial-framework.test.ts": [
       VITEST_IMPORT,
@@ -140,6 +153,7 @@ beforeAll(async () => {
     path.join(repoRoot, "test", "__snapshots__", "snapshot-big.test.ts.snap"),
     `// big snapshot\n${"x".repeat(SNAPSHOT_FILE_BYTE_LIMIT + 1)}\n`,
   );
+  await runGit(repoRoot, ["init", "-q"]);
 
   context = await loadDetectorContext(repoRoot);
 });
@@ -209,6 +223,7 @@ describe("trivial detector", () => {
     expect(flagged).toContain("test/trivial-const.test.ts");
     expect(flagged).toContain("test/trivial-getter.test.ts");
     expect(flagged).toContain("test/trivial-framework.test.ts");
+    expect(flagged).not.toContain("test/trivial-call-result-property.test.ts");
     expect(flagged).not.toContain("test/ok.test.ts");
     expect(flagged).not.toContain("test/mock-mixed.test.ts");
   });

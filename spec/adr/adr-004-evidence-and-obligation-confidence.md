@@ -18,7 +18,7 @@ Repository policy, maintained obligation record, public schema, explicit contrac
 Worked examples:
 
 1. OpenAPI marks `POST /payments` response schema and the diff changes it.
-2. `.test-steward/protected-tests.json` protects an authorization contract test.
+2. `.detestify/protected-tests.json` protects an authorization contract test.
 3. Repository policy declares migrations must preserve downgrade compatibility.
 
 Gate eligibility: may gate only when the declaration is concrete and an executable evidence gap is demonstrated.

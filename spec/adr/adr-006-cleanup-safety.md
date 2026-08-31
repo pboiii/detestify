@@ -37,7 +37,7 @@ Static-only candidates become `MERGE_CANDIDATE` or `INSUFFICIENT_EVIDENCE`.
 
 ### Benchmark versus product evidence
 
-Seeded faults are a benchmark instrument used to evaluate Test Steward. User repositories are not presumed to contain hidden faults. A repository may supply an explicit historical-fault adapter later, but absence cannot be treated as passing evidence.
+Seeded faults are a benchmark instrument used to evaluate Detestify. User repositories are not presumed to contain hidden faults. A repository may explicitly supply historical fix commits with exact source paths and a preregistered failure substring. Detestify promotes a candidate only when the proposed removal tests and retained replacements directly import every declared source path and detect the same single registered observable. Missing or unrelated historical evidence cannot count as passing evidence.
 
 ### Counterfactual validation
 

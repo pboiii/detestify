@@ -1,0 +1,65 @@
+#!/bin/sh
+# Detestify Claude hook launcher. Runtime resolution stays inside the
+# installed plugin root and never evaluates repository configuration.
+set -eu
+
+if [ -x /usr/bin/realpath ]; then
+  REALPATH=/usr/bin/realpath
+elif [ -x /bin/realpath ]; then
+  REALPATH=/bin/realpath
+else
+  echo "detestify-hook: realpath is required to verify the bundled runtime" >&2
+  exit 2
+fi
+
+SCRIPT=$($REALPATH "$0") || {
+  echo "detestify-hook: cannot resolve the launcher path" >&2
+  exit 2
+}
+SCRIPT_DIR=${SCRIPT%/*}
+PLUGIN_ROOT=$($REALPATH "$SCRIPT_DIR/..") || {
+  echo "detestify-hook: cannot resolve the plugin root" >&2
+  exit 2
+}
+ENTRY_PATH="$PLUGIN_ROOT/runtime/entry.js"
+if [ ! -f "$ENTRY_PATH" ]; then
+  echo "detestify-hook: bundled runtime is missing; reinstall the plugin" >&2
+  exit 2
+fi
+ENTRY=$($REALPATH "$ENTRY_PATH") || {
+  echo "detestify-hook: cannot resolve the bundled runtime" >&2
+  exit 2
+}
+case "$ENTRY" in
+  "$PLUGIN_ROOT"/*) ;;
+  *)
+    echo "detestify-hook: bundled runtime escapes the plugin root" >&2
+    exit 2
+    ;;
+esac
+
+NODE=""
+unset NODE_OPTIONS NODE_PATH
+PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+export PATH
+USER_NODE_ROOT=${HOME:-/nonexistent}
+for candidate in \
+  "$USER_NODE_ROOT"/.local/node-v*/bin/node \
+  "$USER_NODE_ROOT"/.volta/bin/node \
+  "$USER_NODE_ROOT"/.nvm/versions/node/v*/bin/node \
+  "$USER_NODE_ROOT"/.local/share/mise/installs/node/*/bin/node \
+  /opt/homebrew/bin/node /usr/local/bin/node /usr/bin/node; do
+  if [ -x "$candidate" ]; then
+    resolved=$($REALPATH "$candidate") || continue
+    if "$resolved" -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)' >/dev/null 2>&1; then
+      NODE=$resolved
+      break
+    fi
+  fi
+done
+if [ -z "$NODE" ]; then
+  echo "detestify-hook: trusted Node.js 22 or newer not found in a standard user or system install" >&2
+  exit 2
+fi
+
+exec "$NODE" "$ENTRY" "$@"

@@ -1,49 +1,56 @@
 # Claude plugin
 
-Test Steward for Claude Code. The layout follows
-`spec/hosts/claude-hook-package.md`:
+Detestify for Claude Code 2.1.241. The plugin contains its own Node.js hook
+runtime; it does not depend on this repository's `dist/` directory.
 
 ```text
 plugins/claude/
   .claude-plugin/plugin.json
   hooks/hooks.json
-  bin/test-steward-hook
-  skills/test-steward/SKILL.md
+  bin/detestify-hook
+  runtime/entry.js
+  schemas/*.schema.json
+  skills/detestify/SKILL.md
   README.md
 ```
 
 ## Install
 
-Installation is always explicit. Place `plugins/claude/` where Claude Code
-discovers local plugins (or install through the plugin marketplace flow once
-published), then review and enable the hooks in `/hooks`. Nothing is active
-until you review it.
+From the repository root:
 
-The launcher `bin/test-steward-hook` resolves the installed CLI distribution
-(`dist/src/hooks/entry.js`) and never evaluates repository configuration.
-`TEST_STEWARD_HOOK_ENTRY` overrides the entry path for testing.
+```sh
+npm run build
+claude plugin marketplace add . --scope user
+claude plugin install detestify@detestify --scope user
+```
+
+Run `/hooks` in a fresh Claude Code session. Review the Detestify commands
+and enable them only if the paths point inside the installed plugin. The hooks
+run with your user permissions; they are a guardrail, not a sandbox. The
+launcher accepts Node.js 22 or newer only from standard user-managed or system
+installation directories.
 
 ## Behavior
 
 - Reads the raw Claude hook payload from stdin.
-- Stores a redacted raw-payload reference outside the envelope.
+- Stores only bounded structured invocation receipts in private user state.
 - Normalizes to the `hook-io.schema.json` invocation.
-- Invokes the same core the `test-steward` CLI uses.
+- Invokes the same core the `detestify` CLI uses.
 - Translates the portable decision into the event-specific Claude output.
-- Stop hooks request at most one remediation continuation per
-  host/session/repository key; every repeated stop allows.
+- Stop hooks request at most one remediation continuation for a normalized
+  host, session, turn-or-diff, and subagent identity; a repeat for that work
+  item allows.
 
 `FileChanged` is deliberately not registered: it watches literal filenames,
 not repository-wide changes.
 
 ## Uninstall
 
-1. Disable or remove the plugin through Claude Code.
-2. Confirm no Test Steward hooks remain in `/hooks`.
-3. Optionally delete Test Steward-owned state under `.test-steward/`.
-4. Run `test-steward doctor` to confirm no hook executable remains.
+1. Run `claude plugin uninstall detestify@detestify`.
+2. Confirm no Detestify hooks remain in `/hooks`.
+3. Optionally run `claude plugin marketplace remove detestify`.
+4. Optionally remove Detestify state from your user state directory.
 
-Alpha certification covers the pinned Claude Code release on macOS and Linux
-only; live payload capture is still pending (spec conflict CON-003 analog for
-Claude). Alpha software under the Apache-2.0 license; see the repository
-`NOTICE`.
+This alpha package targets macOS and Linux. Installation does not prove that
+every host event fired; validate the hooks in the installed host before relying
+on them.

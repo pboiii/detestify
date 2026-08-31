@@ -2,7 +2,7 @@
 
 **Status:** generated final inventory  
 **Generated:** 2026-08-28  
-**File count:** 309
+**File count:** 310
 
 The archive root is `spec/`. Paths below are relative to the specification-tree root.
 
@@ -64,8 +64,8 @@ spec/handoff/fixtures/task-04/oracle/cleanup-plan.hidden.test.ts
 spec/handoff/fixtures/task-04/oracle/faults/T04-F1.patch
 spec/handoff/fixtures/task-04/oracle/faults/T04-F2.patch
 spec/handoff/fixtures/task-04/oracle/protected-behavior.hidden.test.ts
-spec/handoff/fixtures/task-04/repo/.test-steward/expiry.json
-spec/handoff/fixtures/task-04/repo/.test-steward/protected-tests.json
+spec/handoff/fixtures/task-04/repo/.detestify/expiry.json
+spec/handoff/fixtures/task-04/repo/.detestify/protected-tests.json
 spec/handoff/fixtures/task-04/repo/package.json
 spec/handoff/fixtures/task-04/repo/src/email.ts
 spec/handoff/fixtures/task-04/repo/src/webhook-response.ts
@@ -301,6 +301,7 @@ spec/schemas/evidence.schema.json
 spec/schemas/examples/cleanup-delete-candidate.json
 spec/schemas/examples/cleanup-static-only-merge.json
 spec/schemas/examples/config.valid.json
+spec/schemas/examples/decision-existing-evidence-sufficient.json
 spec/schemas/examples/decision-insufficient.json
 spec/schemas/examples/decision-no-test.json
 spec/schemas/examples/evidence-git-diff.json

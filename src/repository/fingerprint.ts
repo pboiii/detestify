@@ -4,9 +4,15 @@
 // any TOCTOU mutation of a changed file changes the fingerprint.
 
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { lstat, readlink, realpath } from "node:fs/promises";
+import path from "node:path";
 import type { ChangedFile, RepositorySnapshot } from "./git.js";
-import { PathContainmentError, realpathContained } from "./paths.js";
+import {
+  normalizeRepositoryPath,
+  PathContainmentError,
+  readContainedRegularFile,
+  realpathContained,
+} from "./paths.js";
 
 export interface DiffFingerprint {
   /** `sha256:<hex>` digest for report `repository.diff_fingerprint`. */
@@ -15,6 +21,8 @@ export interface DiffFingerprint {
   readonly limitations: readonly string[];
 }
 
+const FINGERPRINT_FILE_SIZE_LIMIT = 64 * 1024 * 1024;
+
 async function contentDigest(
   root: string,
   file: ChangedFile,
@@ -22,9 +30,17 @@ async function contentDigest(
   if (file.status === "deleted") {
     return { digest: "deleted" };
   }
-  let contained: string;
+  let relative: string;
+  let entry: string;
   try {
-    contained = await realpathContained(root, file.path);
+    relative = normalizeRepositoryPath(file.path);
+    const realRoot = await realpath(root);
+    const parentRelative = path.posix.dirname(relative);
+    const parent =
+      parentRelative === "."
+        ? realRoot
+        : await realpathContained(realRoot, parentRelative);
+    entry = path.join(parent, path.posix.basename(relative));
   } catch (error) {
     if (error instanceof PathContainmentError) {
       return {
@@ -38,9 +54,46 @@ async function contentDigest(
       limitation: `Changed path ${file.path} could not be resolved for hashing.`,
     };
   }
+
   try {
-    const content = await readFile(contained);
-    return { digest: createHash("sha256").update(content).digest("hex") };
+    const stat = await lstat(entry);
+    if (stat.isSymbolicLink()) {
+      const target = await readlink(entry);
+      return {
+        digest: createHash("sha256")
+          .update("symlink\u0000")
+          .update(String(stat.mode))
+          .update("\u0000")
+          .update(target)
+          .digest("hex"),
+      };
+    }
+    if (!stat.isFile()) {
+      return {
+        digest: createHash("sha256")
+          .update("non-regular\u0000")
+          .update(String(stat.mode))
+          .digest("hex"),
+        limitation: `Changed path ${file.path} is not a regular file or symbolic link; only its type and mode were hashed.`,
+      };
+    }
+
+    const content = await readContainedRegularFile(
+      root,
+      relative,
+      FINGERPRINT_FILE_SIZE_LIMIT,
+    );
+    return {
+      digest: createHash("sha256")
+        .update("regular\u0000")
+        .update(
+          (stat.mode & 0o111) === 0
+            ? "non-executable\u0000"
+            : "executable\u0000",
+        )
+        .update(content)
+        .digest("hex"),
+    };
   } catch {
     return {
       digest: "unreadable",

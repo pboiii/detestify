@@ -1,25 +1,37 @@
 // `cleanup-plan` command (M8): full read-only pipeline — inventory ->
 // detectors -> protection -> planner -> ranked cleanup-plan document
 // (cleanup-plan.schema.json), written atomically when a path is given.
-// There is NO apply command and this command never deletes, edits, stages,
-// or commits anything (ADR-006).
+// There is NO apply command and this command never mutates the source
+// repository (ADR-006). Explicit historical replay applies repository-owned
+// source patches only inside temporary scratch copies.
 //
-// Determinism: the plan document is byte-identical across runs on an
-// unchanged tree — plan_id derives from the repository fingerprint and
+// Without historical replay, the plan document is byte-identical across runs
+// on an unchanged tree: plan_id derives from the repository fingerprint and
 // generated_at is anchored to the HEAD commit time, not the wall clock.
 
 import { EXIT_CODES } from "../exit-codes.js";
 import type { CommandOptions } from "../options.js";
 import { writeJsonReport } from "../output.js";
 import { runGit } from "../../repository/git.js";
-import { schemaSignals, shortHash } from "../../cleanup/detectors/index.js";
+import { normalizeRepositoryPath } from "../../repository/paths.js";
+import {
+  schemaSignals,
+  shortHash,
+  type PlacementDetection,
+} from "../../cleanup/detectors/index.js";
 import {
   buildCleanupPlan,
   type CandidateDraft,
   type CleanupCandidate,
   type CleanupPlan,
 } from "../../cleanup/planner.js";
+import {
+  HistoricalReplayTrustError,
+  runHistoricalReplay,
+  type HistoricalReplayResult,
+} from "../../cleanup/historical-replay.js";
 import { formatSchemaErrors, getValidator } from "../../core/schemas/index.js";
+import type { EvidenceRecord } from "../../core/model/index.js";
 import {
   buildReportEnvelope,
   fail,
@@ -38,6 +50,54 @@ import {
 
 const EPOCH_ISO = "1970-01-01T00:00:00Z";
 
+interface CleanupPlanOptions extends CommandOptions {
+  readonly historicalFaults?: string;
+  readonly candidate?: string;
+  readonly excludeTest?: string | readonly string[];
+}
+
+interface HistoricalRequest {
+  readonly manifestPath: string;
+  readonly candidateId: string;
+  readonly excludeTestPaths: readonly string[];
+  readonly configPath: string;
+}
+
+function historicalRequest(
+  options: CleanupPlanOptions,
+): HistoricalRequest | null {
+  const excludeTestPaths =
+    typeof options.excludeTest === "string"
+      ? [options.excludeTest]
+      : options.excludeTest;
+  const supplied = [
+    options.historicalFaults !== undefined,
+    options.candidate !== undefined,
+    excludeTestPaths !== undefined,
+  ];
+  if (!supplied.some(Boolean)) {
+    return null;
+  }
+  if (!supplied.every(Boolean) || excludeTestPaths?.length === 0) {
+    fail(
+      EXIT_CODES.USAGE_ERROR,
+      "Historical replay requires all of --historical-faults, --candidate, and --exclude-test.",
+    );
+  }
+  if (options.config === undefined) {
+    fail(
+      EXIT_CODES.TRUST_REQUIRED,
+      "Historical replay requires an explicitly passed --config.",
+    );
+  }
+  return {
+    manifestPath: options.historicalFaults!,
+    candidateId: options.candidate!,
+    excludeTestPaths: excludeTestPaths!,
+    configPath: options.config,
+  };
+}
+
 /** HEAD committer time (RFC 3339): deterministic for an unchanged tree. */
 async function deterministicGeneratedAt(ctx: RepoContext): Promise<string> {
   if (ctx.snapshot.headRevision === null) {
@@ -54,19 +114,189 @@ async function deterministicGeneratedAt(ctx: RepoContext): Promise<string> {
 }
 
 function candidateDrafts(audit: AuditCollection): CandidateDraft[] {
-  return audit.detections.map((detection) => {
+  const hypotheses = new Map<string, CandidateDraft>();
+  for (const detection of audit.detections) {
     const split = schemaSignals(detection.signals);
-    const draft: CandidateDraft = {
+    const proposedAction = audit.moveProposals.has(detection.id)
+      ? "MOVE_CANDIDATE"
+      : undefined;
+    const direction =
+      detection.detector === "placement"
+        ? {
+            remove_paths: [(detection as PlacementDetection).covered_path],
+            retain_paths: [(detection as PlacementDetection).covering_path],
+          }
+        : {};
+    // Exact path identity is the hypothesis boundary. Mere overlap is not
+    // enough to combine signals from separate cleanup candidates.
+    const identity = [...detection.test_paths].sort().join("\0");
+    const existing = hypotheses.get(identity);
+    if (existing !== undefined) {
+      hypotheses.set(identity, {
+        ...existing,
+        ...direction,
+        ...(existing.proposed_action === undefined &&
+        proposedAction !== undefined
+          ? { proposed_action: proposedAction }
+          : {}),
+        structural_signals: [
+          ...new Set([
+            ...(existing.structural_signals ?? []),
+            ...split.structural_signals,
+          ]),
+        ].sort(),
+        independent_signals: [
+          ...new Set([
+            ...(existing.independent_signals ?? []),
+            ...split.independent_signals,
+          ]),
+        ].sort(),
+        rationale: [...new Set([existing.rationale, detection.rationale])].join(
+          " ",
+        ),
+        limitations: [
+          ...new Set([
+            ...(existing.limitations ?? []),
+            ...detection.limitations,
+          ]),
+        ],
+      });
+      continue;
+    }
+    hypotheses.set(identity, {
       id: detection.id,
       test_paths: [...detection.test_paths],
+      ...direction,
       rationale: detection.rationale,
+      ...(proposedAction === undefined
+        ? {}
+        : { proposed_action: proposedAction }),
       structural_signals: split.structural_signals,
       independent_signals: split.independent_signals,
       limitations: [...detection.limitations],
+    });
+  }
+  return [...hypotheses.values()];
+}
+
+function bindEvidenceToHypotheses(
+  drafts: readonly CandidateDraft[],
+  records: readonly EvidenceRecord[],
+): EvidenceRecord[] {
+  const candidatesBySignal = new Map<string, CandidateDraft | null>();
+  for (const draft of drafts) {
+    for (const signalId of [
+      ...(draft.structural_signals ?? []),
+      ...(draft.independent_signals ?? []),
+    ]) {
+      candidatesBySignal.set(
+        signalId,
+        candidatesBySignal.has(signalId) ? null : draft,
+      );
+    }
+  }
+  return records.map((record) => {
+    const candidate = candidatesBySignal.get(record.id);
+    const removePaths = candidate?.remove_paths ?? [];
+    const retainPaths = candidate?.retain_paths ?? [];
+    if (
+      candidate === undefined ||
+      candidate === null ||
+      removePaths.length === 0 ||
+      retainPaths.length === 0
+    ) {
+      return record;
+    }
+    const structural =
+      candidate.structural_signals?.includes(record.id) ?? false;
+    return {
+      ...record,
+      data: {
+        ...record.data,
+        candidate_id: candidate.id,
+        remove_paths: [...removePaths],
+        retain_paths: [...retainPaths],
+      },
+      gate_trust:
+        record.status === "observed" &&
+        (record.gate_trust === "eligible" || structural)
+          ? "eligible"
+          : record.gate_trust,
     };
-    return audit.moveProposals.has(detection.id)
-      ? { ...draft, proposed_action: "MOVE_CANDIDATE" }
-      : draft;
+  });
+}
+
+function attachHistoricalReplay(
+  drafts: readonly CandidateDraft[],
+  candidateId: string,
+  excludeTestPaths: readonly string[],
+  revision: string | null,
+  replay: HistoricalReplayResult,
+): CandidateDraft[] {
+  return drafts.map((draft) => {
+    if (draft.id !== candidateId) {
+      return draft;
+    }
+    const removePaths = [
+      ...new Set(excludeTestPaths.map(normalizeRepositoryPath)),
+    ];
+    const retainPaths = draft.test_paths.filter(
+      (testPath) => !removePaths.includes(testPath),
+    );
+    const limitations = replay.passed
+      ? [...(draft.limitations ?? [])]
+      : [
+          ...(draft.limitations ?? []),
+          ...(replay.limitations.length > 0
+            ? replay.limitations
+            : [replay.summary]),
+        ];
+    return {
+      ...draft,
+      remove_paths: removePaths,
+      retain_paths: retainPaths,
+      ...(replay.passed
+        ? {
+            obligation_ids: [
+              ...new Set([
+                ...(draft.obligation_ids ?? []),
+                ...replay.obligationIds,
+              ]),
+            ],
+            obligation_preservation: replay.obligationIds.map(
+              (obligationId) => ({
+                obligation_id: obligationId,
+                retained_paths: retainPaths,
+              }),
+            ),
+            independent_signals: [
+              ...new Set([
+                ...(draft.independent_signals ?? []),
+                replay.signalId,
+              ]),
+            ],
+          }
+        : {}),
+      counterfactual: {
+        status: replay.counterfactualStatus,
+        commands_ref: replay.signalId,
+        candidate_id: candidateId,
+        remove_paths: removePaths,
+        retain_paths: retainPaths,
+        preserved_obligations: replay.passed ? replay.obligationIds : [],
+        limitations: replay.limitations,
+      },
+      worktree_validation: {
+        status: replay.worktreeStatus,
+        worktree_ref: replay.signalId,
+        revision,
+        cleanup_complete: true,
+      },
+      rationale: replay.passed
+        ? `${draft.rationale} ${replay.summary}`
+        : draft.rationale,
+      limitations,
+    };
   });
 }
 
@@ -79,10 +309,11 @@ function candidateDecision(candidate: CleanupCandidate): unknown {
     gate_action: "advise",
     confidence: candidate.action === "KEEP" ? "high" : "medium",
     reason_code: `CLEANUP_${candidate.action}`,
-    summary: `${candidate.action}: ${candidate.test_paths.join(", ")}`.slice(
-      0,
-      500,
-    ),
+    summary:
+      `${candidate.action}: remove ${candidate.remove_paths.join(", ") || "(none)"}; retain ${candidate.retain_paths.join(", ") || "(none)"}`.slice(
+        0,
+        500,
+      ),
     rationale: candidate.rationale,
     remediation: null,
     obligation_candidate_ids: [],
@@ -112,12 +343,15 @@ function candidateDecision(candidate: CleanupCandidate): unknown {
 
 function planSummaryLines(plan: CleanupPlan): string[] {
   const lines = [
-    `Cleanup plan ${plan.plan_id}: ${plan.candidates.length} ranked candidate(s). Read-only — there is no apply command; nothing was modified.`,
+    `Cleanup plan ${plan.plan_id}: ${plan.candidates.length} ranked candidate(s). Read-only — there is no apply command; the source repository was not modified.`,
     "HUMAN APPROVAL REQUIRED: no candidate may be acted on without explicit human review and approval.",
   ];
   plan.candidates.forEach((candidate, index) => {
     lines.push(
       `${String(index + 1).padStart(2)}. ${candidate.action}  ${candidate.test_paths.join(", ")}`,
+    );
+    lines.push(
+      `    remove: ${candidate.remove_paths.join(", ") || "(none)"} | retain: ${candidate.retain_paths.join(", ") || "(none)"}`,
     );
     const structural =
       candidate.structural_signals.length > 0
@@ -137,34 +371,82 @@ function planSummaryLines(plan: CleanupPlan): string[] {
   return lines;
 }
 
-export async function run(options: CommandOptions): Promise<void> {
+export async function run(options: CleanupPlanOptions): Promise<void> {
   const started = process.hrtime.bigint();
   const generatedAt = new Date().toISOString();
+  const request = historicalRequest(options);
   const ctx = await loadRepoContext(options);
   const repositoryMs = Number((process.hrtime.bigint() - started) / 1_000_000n);
   const audit = await collectAudit(ctx, todayIso());
 
+  let drafts = candidateDrafts(audit);
+  let replay: HistoricalReplayResult | null = null;
+  if (request !== null) {
+    const selected = drafts.find((draft) => draft.id === request.candidateId);
+    if (selected === undefined) {
+      fail(
+        EXIT_CODES.USAGE_ERROR,
+        `Cleanup candidate not found: ${request.candidateId}`,
+      );
+    }
+    try {
+      replay = await runHistoricalReplay({
+        repositoryRoot: ctx.snapshot.root,
+        repositoryFiles: ctx.files,
+        sourceFiles: ctx.shape.sourceFiles,
+        testFiles: ctx.shape.runnerTestFiles,
+        runner: ctx.shape.runner,
+        configPath: request.configPath,
+        manifestPath: request.manifestPath,
+        candidateId: request.candidateId,
+        candidateTestPaths: selected.test_paths,
+        excludeTestPaths: request.excludeTestPaths,
+        revision: ctx.snapshot.headRevision,
+        sourceFingerprint: ctx.diff.fingerprint,
+        observedAt: generatedAt,
+      });
+    } catch (error) {
+      if (error instanceof HistoricalReplayTrustError) {
+        fail(EXIT_CODES.TRUST_REQUIRED, error.message);
+      }
+      throw error;
+    }
+    drafts = attachHistoricalReplay(
+      drafts,
+      request.candidateId,
+      request.excludeTestPaths,
+      ctx.snapshot.headRevision,
+      replay,
+    );
+  }
+
   const revision = ctx.snapshot.headRevision ?? "unborn";
   const planGeneratedAt = await deterministicGeneratedAt(ctx);
+  const candidateEvidence = bindEvidenceToHypotheses(drafts, [
+    ...(signalEvidence(audit, ctx, generatedAt) as EvidenceRecord[]),
+    ...(replay === null ? [] : [replay.evidence as unknown as EvidenceRecord]),
+  ]);
   const plan = buildCleanupPlan({
-    plan_id: `plan-${shortHash(ctx.snapshot.root, revision, ctx.diff.fingerprint)}`,
+    plan_id: `plan-${shortHash(ctx.snapshot.root, revision, ctx.diff.fingerprint, replay?.signalId ?? "")}`,
     generated_at: planGeneratedAt,
     repository: {
       root: ctx.snapshot.root,
       revision,
       diff_fingerprint: ctx.diff.fingerprint,
     },
-    candidates: candidateDrafts(audit),
+    candidates: drafts,
+    evidence: candidateEvidence,
     protection: audit.protection,
     allow_delete_candidates: ctx.config.allowDeleteCandidates,
     limitations: [
-      "Alpha cleanup is a read-only candidate plan: no apply command exists and nothing is deleted, edited, staged, or committed.",
+      "Alpha cleanup is a read-only candidate plan: no apply command exists and the source repository is not deleted, edited, staged, or committed.",
       "Static-only evidence cannot produce DELETE_CANDIDATE (ADR-006).",
       ...(ctx.snapshot.headRevision === null
         ? [
             "The repository has no HEAD commit; generated_at is fixed to the epoch.",
           ]
         : []),
+      ...(replay !== null && !replay.passed ? replay.limitations : []),
     ],
   });
 
@@ -184,7 +466,7 @@ export async function run(options: CommandOptions): Promise<void> {
 
   const elapsedMs = Number((process.hrtime.bigint() - started) / 1_000_000n);
   const evidence = [
-    ...signalEvidence(audit, ctx, generatedAt),
+    ...candidateEvidence,
     protectionEvidence(audit, ctx, generatedAt),
   ];
   const summaryDecision = {
@@ -232,8 +514,17 @@ export async function run(options: CommandOptions): Promise<void> {
     elapsedMs,
     phases: { repository: repositoryMs, plan: elapsedMs - repositoryMs },
   });
+  if (replay !== null) {
+    report.capabilities = {
+      ...(report.capabilities as Record<string, unknown>),
+      repository_commands_trusted: true,
+    };
+  }
 
   const humanLines = planSummaryLines(plan);
+  if (replay !== null) {
+    humanLines.push(`Historical fault replay: ${replay.summary}`);
+  }
   if (options.json !== undefined && options.json !== "-") {
     humanLines.push(`Plan document: ${options.json}`);
   } else if (options.json === undefined) {

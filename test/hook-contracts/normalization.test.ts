@@ -262,7 +262,7 @@ describe("decision envelope construction", () => {
       summary: "Boundary retry behavior changed without a retry guard test.",
       remediation:
         "Add or update one focused integration test that fails the first attempt and proves exactly one eventual side effect.",
-      report_path: ".test-steward/reports/stop-001.json",
+      report_path: ".detestify/reports/stop-001.json",
       limitations: ["Mutation evidence was not requested."],
       loop_guard: { next_attempt: 1 },
     });
@@ -329,7 +329,7 @@ describe("host translation matrix", () => {
     summary: "Boundary retry changed without a retry guard test.",
     remediation:
       "Add one focused integration test proving exactly one side effect.",
-    report_path: ".test-steward/reports/stop-001.json",
+    report_path: ".detestify/reports/stop-001.json",
     limitations: ["Mutation evidence was not requested."],
     loop_guard: { next_attempt: 1, max_attempts: 2 as const },
   };
@@ -353,7 +353,7 @@ describe("host translation matrix", () => {
     reason_code: "INSUFFICIENT_EVIDENCE",
     summary: "Coverage evidence absent for the changed boundary.",
     remediation: null,
-    report_path: ".test-steward/reports/stop-002.json",
+    report_path: ".detestify/reports/stop-002.json",
     limitations: ["Coverage tool unavailable."],
     loop_guard: { next_attempt: 0, max_attempts: 2 as const },
   };
@@ -370,30 +370,46 @@ describe("host translation matrix", () => {
     loop_guard: { next_attempt: 0, max_attempts: 2 as const },
   };
 
-  it("claude: request_remediation blocks on Stop-family events", () => {
-    for (const event of [
-      "turn_stop",
-      "subagent_stop",
-      "task_complete",
-    ] as const) {
+  it("claude: request_remediation blocks Stop and SubagentStop", () => {
+    for (const event of ["turn_stop", "subagent_stop"] as const) {
       const output = translateClaudeDecision(event, remediate);
       expect(output.exitCode).toBe(0);
+      expect(output.stderr).toBeNull();
       const parsed = JSON.parse(output.stdout ?? "") as {
         decision: string;
         reason: string;
       };
       expect(parsed.decision).toBe("block");
-      expect(parsed.reason).toContain("focused integration test");
+      expect(parsed.reason).toContain("MATERIAL_BOUNDARY_EVIDENCE_GAP");
+      expect(parsed.reason).not.toContain("focused integration test");
     }
   });
 
-  it("claude: request_remediation degrades to advice on unsupported events", () => {
+  it("claude: TaskCompleted blocks with exit 2 and stderr feedback", () => {
+    const output = translateClaudeDecision("task_complete", remediate);
+    expect(output.stdout).toBeNull();
+    expect(output.stderr).toContain("MATERIAL_BOUNDARY_EVIDENCE_GAP");
+    expect(output.exitCode).toBe(2);
+  });
+
+  it("claude: request_remediation becomes fixed context where supported", () => {
     const output = translateClaudeDecision("after_tool", remediate);
     expect(output.exitCode).toBe(0);
-    expect(output.stdout).toContain("Test Steward advice");
-    expect(output.stdout).toContain(
-      "request_remediation is not supported on after_tool",
-    );
+    expect(JSON.parse(output.stdout ?? "")).toMatchObject({
+      hookSpecificOutput: {
+        hookEventName: "PostToolUse",
+        additionalContext: expect.stringContaining(
+          "MATERIAL_BOUNDARY_EVIDENCE_GAP",
+        ),
+      },
+    });
+    expect(output.stdout).not.toContain("stop-001.json");
+
+    const fallback = translateClaudeDecision("before_tool", remediate);
+    expect(JSON.parse(fallback.stdout ?? "")).toEqual({
+      systemMessage: expect.stringContaining("detestify verify-change"),
+    });
+    expect(fallback.exitCode).toBe(0);
   });
 
   it("claude: deny_tool uses the PreToolUse permission shape only", () => {
@@ -403,22 +419,30 @@ describe("host translation matrix", () => {
     };
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("deny");
     const degraded = translateClaudeDecision("after_tool", deny);
-    expect(degraded.stdout).toContain(
-      "deny_tool is not supported on after_tool",
-    );
+    expect(degraded.stdout).toContain("DESTRUCTIVE_COMMAND_PATTERN");
   });
 
-  it("claude: allow is silent, advise uses context where supported", () => {
+  it("claude: allow is silent, advise is visible on every event", () => {
     expect(translateClaudeDecision("turn_stop", allow).stdout).toBeNull();
     const context = translateClaudeDecision("session_start", advise);
     const parsed = JSON.parse(context.stdout ?? "") as {
-      decision: string;
-      additionalContext: string;
+      hookSpecificOutput: {
+        hookEventName: string;
+        additionalContext: string;
+      };
     };
-    expect(parsed.decision).toBe("allow");
-    expect(parsed.additionalContext).toContain("stop-002.json");
+    expect(parsed.hookSpecificOutput.hookEventName).toBe("SessionStart");
+    expect(parsed.hookSpecificOutput.additionalContext).toContain(
+      "INSUFFICIENT_EVIDENCE",
+    );
+    expect(parsed.hookSpecificOutput.additionalContext).not.toContain(
+      "stop-002.json",
+    );
     const plain = translateClaudeDecision("turn_stop", advise);
-    expect(plain.stdout).toContain("Test Steward advice");
+    expect(JSON.parse(plain.stdout ?? "")).toEqual({
+      systemMessage: expect.stringContaining("INSUFFICIENT_EVIDENCE"),
+    });
+    expect(plain.exitCode).toBe(0);
   });
 
   it("codex: request_remediation blocks on Stop and SubagentStop", () => {
@@ -429,33 +453,55 @@ describe("host translation matrix", () => {
         reason: string;
       };
       expect(parsed.decision).toBe("block");
-      expect(parsed.reason).toContain("focused integration test");
+      expect(parsed.reason).toContain("MATERIAL_BOUNDARY_EVIDENCE_GAP");
+      expect(parsed.reason).not.toContain("focused integration test");
     }
   });
 
-  it("codex: request_remediation degrades to advice outside Stop family", () => {
+  it("codex: request_remediation becomes fixed nested context outside Stop", () => {
     const output = translateCodexDecision("after_tool", remediate);
     expect(JSON.parse(output.stdout ?? "")).toMatchObject({
-      decision: "allow",
+      hookSpecificOutput: {
+        hookEventName: "PostToolUse",
+        additionalContext: expect.stringContaining(
+          "MATERIAL_BOUNDARY_EVIDENCE_GAP",
+        ),
+      },
     });
-    expect(output.stdout).toContain("request_remediation is not supported");
+    expect(output.stdout).not.toContain("stop-001.json");
+
+    const fallback = translateCodexDecision("before_tool", remediate);
+    expect(JSON.parse(fallback.stdout ?? "")).toEqual({
+      systemMessage: expect.stringContaining("detestify verify-change"),
+    });
+    expect(fallback.exitCode).toBe(0);
   });
 
-  it("codex: allow emits JSON on Stop-family events", () => {
+  it("codex: allow is empty on Stop-family events", () => {
     const output = translateCodexDecision("turn_stop", allow);
-    expect(JSON.parse(output.stdout ?? "")).toEqual({ decision: "allow" });
+    expect(output).toEqual({ stdout: null, stderr: null, exitCode: 0 });
     expect(translateCodexDecision("before_tool", allow).stdout).toBeNull();
   });
 
-  it("codex: advise places bounded context with limitations and report path", () => {
-    const output = translateCodexDecision("turn_stop", advise);
+  it("codex: advise uses context or a universal informational message", () => {
+    const fallback = translateCodexDecision("turn_stop", advise);
+    expect(JSON.parse(fallback.stdout ?? "")).toEqual({
+      systemMessage: expect.stringContaining("INSUFFICIENT_EVIDENCE"),
+    });
+    expect(fallback.exitCode).toBe(0);
+    const output = translateCodexDecision("after_tool", advise);
     const parsed = JSON.parse(output.stdout ?? "") as {
-      decision: string;
-      additionalContext: string;
+      hookSpecificOutput: {
+        hookEventName: string;
+        additionalContext: string;
+      };
     };
-    expect(parsed.decision).toBe("allow");
-    expect(parsed.additionalContext).toContain("stop-002.json");
-    expect(parsed.additionalContext).toContain("Coverage tool unavailable.");
+    expect(parsed.hookSpecificOutput.hookEventName).toBe("PostToolUse");
+    expect(parsed.hookSpecificOutput.additionalContext).toContain(
+      "INSUFFICIENT_EVIDENCE",
+    );
+    expect(output.stdout).not.toContain("stop-002.json");
+    expect(output.stdout).not.toContain("Coverage tool unavailable.");
   });
 
   it("codex: deny_tool blocks only on before_tool", () => {
@@ -464,9 +510,39 @@ describe("host translation matrix", () => {
       decision: "block",
     });
     const degraded = translateCodexDecision("turn_stop", deny);
-    expect(degraded.stdout).toContain(
-      "deny_tool is not supported on turn_stop",
-    );
+    expect(JSON.parse(degraded.stdout ?? "")).toEqual({
+      systemMessage: expect.stringContaining("DESTRUCTIVE_COMMAND_PATTERN"),
+    });
+    expect(degraded.exitCode).toBe(0);
+  });
+
+  it("never emits repository-controlled decision prose or paths", () => {
+    for (const output of [
+      translateClaudeDecision("turn_stop", remediate),
+      translateClaudeDecision("after_tool", advise),
+      translateClaudeDecision("turn_stop", advise),
+      translateClaudeDecision("before_tool", remediate),
+      translateClaudeDecision("turn_stop", deny),
+      translateCodexDecision("turn_stop", remediate),
+      translateCodexDecision("after_tool", advise),
+      translateCodexDecision("turn_stop", advise),
+      translateCodexDecision("before_tool", remediate),
+      translateCodexDecision("turn_stop", deny),
+    ]) {
+      const visible = `${output.stdout ?? ""}${output.stderr ?? ""}`;
+      for (const unsafe of [
+        remediate.summary,
+        remediate.remediation,
+        remediate.report_path,
+        ...remediate.limitations,
+        advise.summary,
+        advise.report_path,
+        ...advise.limitations,
+        deny.summary,
+      ]) {
+        expect(visible).not.toContain(unsafe);
+      }
+    }
   });
 });
 

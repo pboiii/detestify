@@ -1,0 +1,20 @@
+{
+  "name": "detestify",
+  "interface": {
+    "displayName": "Detestify"
+  },
+  "plugins": [
+    {
+      "name": "detestify",
+      "source": {
+        "source": "local",
+        "path": "./plugins/openai"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Engineering"
+    }
+  ]
+}

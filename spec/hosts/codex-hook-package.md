@@ -5,7 +5,7 @@
 
 ## 1. Product surface
 
-The current desktop application brings Chat, Work, and Codex together, while Codex remains a distinct view and workflow. Test Steward certifies the Codex view and Codex CLI hook runtime. It does not claim that ordinary Chat or Work conversations execute Codex lifecycle hooks.
+The current desktop application brings Chat, Work, and Codex together, while Codex remains a distinct view and workflow. Detestify supports the Codex view and Codex CLI hook runtime. It does not claim that ordinary Chat or Work conversations execute Codex lifecycle hooks.
 
 ## 2. Package layout
 
@@ -13,18 +13,18 @@ The current desktop application brings Chat, Work, and Codex together, while Cod
 plugins/openai/
   .codex-plugin/plugin.json
   hooks/hooks.json
-  bin/test-steward-hook
-  skills/test-steward/SKILL.md
+  bin/detestify-hook
+  skills/detestify/SKILL.md
   README.md
 ```
 
-The plugin manifest points to `./hooks/hooks.json`. The launcher reads raw stdin, stores a redacted compatibility reference in plugin data, normalizes it, invokes the same core used by Claude/direct/CI, and translates the portable decision.
+The plugin manifest points to `./hooks/hooks.json`. The launcher reads raw stdin, stores bounded invocation data in private user state, normalizes it, invokes the same core used by Claude/direct/CI, and translates the portable decision.
 
 ## 3. Manifest
 
 ```json
 {
-  "name": "test-steward",
+  "name": "detestify",
   "hooks": "./hooks/hooks.json"
 }
 ```
@@ -35,15 +35,15 @@ Additional metadata follows the pinned OpenAI plugin schema. Hook paths must be 
 
 ```json
 {
-  "description": "Test Steward lifecycle checks",
+  "description": "Detestify lifecycle checks",
   "hooks": {
     "SessionStart": [{
       "matcher": "startup|resume|clear|compact",
       "hooks": [{
         "type": "command",
-        "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex session_start",
+        "command": "${PLUGIN_ROOT}/bin/detestify-hook codex session_start",
         "timeout": 5,
-        "statusMessage": "Loading Test Steward repository state",
+        "statusMessage": "Loading Detestify repository state",
         "additionalContextLimit": 6000
       }]
     }],
@@ -51,7 +51,7 @@ Additional metadata follows the pinned OpenAI plugin schema. Hook paths must be 
       "matcher": "Bash|apply_patch|Edit|Write",
       "hooks": [{
         "type": "command",
-        "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex before_tool",
+        "command": "${PLUGIN_ROOT}/bin/detestify-hook codex before_tool",
         "timeout": 5,
         "statusMessage": "Checking test-policy guard"
       }]
@@ -60,7 +60,7 @@ Additional metadata follows the pinned OpenAI plugin schema. Hook paths must be 
       "matcher": "Bash|apply_patch|Edit|Write",
       "hooks": [{
         "type": "command",
-        "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex after_tool",
+        "command": "${PLUGIN_ROOT}/bin/detestify-hook codex after_tool",
         "timeout": 5,
         "statusMessage": "Recording changed evidence"
       }]
@@ -68,7 +68,7 @@ Additional metadata follows the pinned OpenAI plugin schema. Hook paths must be 
     "SubagentStop": [{
       "hooks": [{
         "type": "command",
-        "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex subagent_stop",
+        "command": "${PLUGIN_ROOT}/bin/detestify-hook codex subagent_stop",
         "timeout": 20,
         "statusMessage": "Verifying subagent test evidence",
         "additionalContextLimit": 6000
@@ -77,7 +77,7 @@ Additional metadata follows the pinned OpenAI plugin schema. Hook paths must be 
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex turn_stop",
+        "command": "${PLUGIN_ROOT}/bin/detestify-hook codex turn_stop",
         "timeout": 20,
         "statusMessage": "Verifying test evidence",
         "additionalContextLimit": 6000
@@ -86,7 +86,7 @@ Additional metadata follows the pinned OpenAI plugin schema. Hook paths must be 
     "SessionEnd": [{
       "hooks": [{
         "type": "command",
-        "command": "${PLUGIN_ROOT}/bin/test-steward-hook codex session_end",
+        "command": "${PLUGIN_ROOT}/bin/detestify-hook codex session_end",
         "timeout": 3
       }]
     }]
@@ -128,7 +128,7 @@ Use command handlers only in alpha. Codex currently supports command and MCP-too
 3. The initial eligible Stop may return one `decision: "block"` reason.
 4. The resulting continuation is treated as a new prompt by Codex.
 5. The next Stop must allow or advise; it may not block again.
-6. A `continue: false` result from another matching hook takes precedence; Test Steward records that it did not control the final outcome.
+6. A `continue: false` result from another matching hook takes precedence; Detestify records that it did not control the final outcome.
 7. Apply the same bounded rule to a subagent key on `SubagentStop`.
 
 ## 9. Trust and install
@@ -147,7 +147,7 @@ Use command handlers only in alpha. Codex currently supports command and MCP-too
 
 ## 11. Uninstall
 
-Disable/remove the plugin, confirm the hook source disappears from `/hooks`, optionally delete Test Steward-owned plugin data, preserve repository reports/config, and run detached `doctor` verification.
+Disable/remove the plugin, confirm the hook source disappears from `/hooks`, optionally delete Detestify-owned plugin data, preserve repository reports/config, and run detached `doctor` verification.
 
 ## 12. Certification tests
 

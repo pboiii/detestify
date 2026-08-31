@@ -4,21 +4,24 @@
 // files as positional arguments to `vitest run`; structured results come from
 // the JSON reporter written to a scratch file outside the repository.
 
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { readContainedRegularFile } from "../../repository/paths.js";
 import {
-  parseJestFormatResults,
+  parseSelectedJestFormatResults,
   runFixedArgv,
   runnerEnvironment,
   type ProcessOutcome,
   type RunnerResults,
 } from "./process.js";
+import { resolveRunnerExecution, RunnerUnavailableError } from "./workspace.js";
+export { resolveRunnerExecution, RunnerUnavailableError } from "./workspace.js";
 
-export const VITEST_ENTRY = "node_modules/vitest/vitest.mjs";
+const RESULT_FILE_MAX_BYTES = 8 * 1024 * 1024;
 
 export interface RunnerInvocation {
-  readonly runner: "vitest" | "jest";
+  readonly runner: "vitest" | "jest" | "node:test";
   /** Runner package version read inertly from its package.json, or null. */
   readonly version: string | null;
   /** Full argv: [node, entry, ...fixed args, ...test files]. */
@@ -27,25 +30,14 @@ export interface RunnerInvocation {
   readonly testFiles: readonly string[];
   readonly outcome: ProcessOutcome;
   readonly results: RunnerResults | null;
+  /** Whether structured results reported exactly every selected file. */
+  readonly selectedFilesCovered?: boolean | null;
 }
 
 export interface RunnerRunOptions {
   readonly repoRoot: string;
   readonly testFiles: readonly string[];
   readonly timeoutMs: number;
-}
-
-/** Resolve the repository's Vitest entry, or null when it is not installed. */
-export async function resolveVitestEntry(
-  repoRoot: string,
-): Promise<string | null> {
-  const entry = path.join(repoRoot, VITEST_ENTRY);
-  try {
-    await access(entry);
-    return entry;
-  } catch {
-    return null;
-  }
 }
 
 /** Read the installed runner package version inertly. */
@@ -85,14 +77,40 @@ export function buildVitestArgs(
 }
 
 async function readResults(
-  outputFile: string,
+  scratch: string,
   outcome: ProcessOutcome,
-): Promise<RunnerResults | null> {
+  executionRoot: string,
+  selectedTestFiles: readonly string[],
+): Promise<{
+  results: RunnerResults | null;
+  selectedFilesCovered: boolean | null;
+}> {
   try {
-    return parseJestFormatResults(await readFile(outputFile, "utf8"));
+    const document = await readContainedRegularFile(
+      scratch,
+      "results.json",
+      RESULT_FILE_MAX_BYTES,
+    );
+    const parsed = parseSelectedJestFormatResults(
+      document.toString("utf8"),
+      executionRoot,
+      selectedTestFiles,
+    );
+    return {
+      results: parsed?.results ?? null,
+      selectedFilesCovered: parsed?.selectedFilesCovered ?? null,
+    };
   } catch {
     // Fall back to stdout: some failures still print the JSON document.
-    return parseJestFormatResults(outcome.stdout.trim());
+    const parsed = parseSelectedJestFormatResults(
+      outcome.stdout.trim(),
+      executionRoot,
+      selectedTestFiles,
+    );
+    return {
+      results: parsed?.results ?? null,
+      selectedFilesCovered: parsed?.selectedFilesCovered ?? null,
+    };
   }
 }
 
@@ -100,48 +118,45 @@ async function readResults(
 export async function runVitest(
   options: RunnerRunOptions,
 ): Promise<RunnerInvocation> {
-  const entry = await resolveVitestEntry(options.repoRoot);
-  if (entry === null) {
-    throw new RunnerUnavailableError(
-      "vitest",
-      `Vitest entry ${VITEST_ENTRY} is not installed in the repository.`,
-    );
-  }
+  const execution = await resolveRunnerExecution(
+    options.repoRoot,
+    "vitest",
+    options.testFiles,
+  );
   const scratch = await mkdtemp(path.join(tmpdir(), "test-steward-vitest-"));
   const outputFile = path.join(scratch, "results.json");
-  const args = buildVitestArgs(entry, options.testFiles, outputFile);
+  const args = buildVitestArgs(
+    execution.entry,
+    execution.executionTestFiles,
+    outputFile,
+  );
   try {
     const outcome = await runFixedArgv({
       file: process.execPath,
       args,
-      cwd: options.repoRoot,
+      cwd: execution.executionRoot,
       env: runnerEnvironment(),
       timeoutMs: options.timeoutMs,
     });
-    const results = outcome.timedOut
-      ? null
-      : await readResults(outputFile, outcome);
+    const parsed = outcome.timedOut
+      ? { results: null, selectedFilesCovered: null }
+      : await readResults(
+          scratch,
+          outcome,
+          execution.executionRoot,
+          execution.executionTestFiles,
+        );
     return {
       runner: "vitest",
-      version: await readRunnerVersion(options.repoRoot, "vitest"),
+      version: await readRunnerVersion(execution.executionRoot, "vitest"),
       argv: [process.execPath, ...args],
-      cwd: options.repoRoot,
-      testFiles: options.testFiles,
+      cwd: execution.executionRoot,
+      testFiles: execution.repositoryTestFiles,
       outcome,
-      results,
+      results: parsed.results,
+      selectedFilesCovered: parsed.selectedFilesCovered,
     };
   } finally {
     await rm(scratch, { recursive: true, force: true }).catch(() => undefined);
-  }
-}
-
-/** The requested runner is not installed in the repository. */
-export class RunnerUnavailableError extends Error {
-  constructor(
-    readonly runner: "vitest" | "jest",
-    message: string,
-  ) {
-    super(message);
-    this.name = "RunnerUnavailableError";
   }
 }

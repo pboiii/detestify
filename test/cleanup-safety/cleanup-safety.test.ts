@@ -11,6 +11,7 @@ import {
   buildCleanupPlan,
   type CandidateDraft,
   type CleanupCandidate,
+  type CleanupEvidenceRecord,
   type CleanupPlan,
 } from "../../src/cleanup/planner.js";
 import {
@@ -48,19 +49,30 @@ const repository = {
 const perfectRedundancyDraft: CandidateDraft = {
   id: "cand-1",
   test_paths: ["test/dup-a.test.ts", "test/dup-b.test.ts"],
+  remove_paths: ["test/dup-b.test.ts"],
+  retain_paths: ["test/dup-a.test.ts"],
   proposed_action: "DELETE_CANDIDATE",
   obligation_ids: ["OBL-DUP"],
+  obligation_preservation: [
+    {
+      obligation_id: "OBL-DUP",
+      retained_paths: ["test/dup-a.test.ts"],
+    },
+  ],
   structural_signals: ["ev-byte-identical", "ev-ast-identical"],
   independent_signals: ["ev-isolated-removal"],
   counterfactual: {
     status: "passed",
     commands_ref: "run:counterfactual-1",
+    candidate_id: "cand-1",
+    remove_paths: ["test/dup-b.test.ts"],
+    retain_paths: ["test/dup-a.test.ts"],
     preserved_obligations: ["OBL-DUP"],
     limitations: ["Only the selected suite was run."],
   },
   worktree_validation: {
     status: "passed",
-    worktree_ref: "worktree:1",
+    worktree_ref: "run:counterfactual-1",
     revision: "abc123",
     cleanup_complete: true,
   },
@@ -68,6 +80,29 @@ const perfectRedundancyDraft: CandidateDraft = {
     "One test is byte- and AST-identical to a retained test; isolated removal preserved the obligation.",
   limitations: ["This is a candidate only; alpha does not apply deletion."],
 };
+
+function evidenceFor(
+  drafts: readonly CandidateDraft[],
+): CleanupEvidenceRecord[] {
+  return drafts.flatMap((draft) => {
+    const removePaths = draft.remove_paths ?? [];
+    const retainPaths = draft.retain_paths ?? [];
+    if (removePaths.length === 0 || retainPaths.length === 0) return [];
+    return [
+      ...(draft.structural_signals ?? []),
+      ...(draft.independent_signals ?? []),
+    ].map((id) => ({
+      id,
+      status: "observed" as const,
+      gate_trust: "eligible" as const,
+      data: {
+        candidate_id: draft.id,
+        remove_paths: [...removePaths],
+        retain_paths: [...retainPaths],
+      },
+    }));
+  });
+}
 
 const emptyLedger = JSON.stringify({ schema_version: "1.0", tests: [] });
 
@@ -92,6 +127,7 @@ describe("cleanup safety counterexamples", () => {
       generated_at: "2026-08-28T00:00:00Z",
       repository,
       candidates: [perfectRedundancyDraft],
+      evidence: evidenceFor([perfectRedundancyDraft]),
       protection,
     });
     const candidate = plan.candidates[0]!;
@@ -143,6 +179,7 @@ describe("cleanup safety counterexamples", () => {
       generated_at: "2026-08-28T00:00:00Z",
       repository,
       candidates: [perfectRedundancyDraft],
+      evidence: evidenceFor([perfectRedundancyDraft]),
       protection,
     });
     const candidate = plan.candidates[0]!;
@@ -153,6 +190,9 @@ describe("cleanup safety counterexamples", () => {
     expect(candidate.counterfactual).toEqual({
       status: "passed",
       commands_ref: "run:counterfactual-1",
+      candidate_id: "cand-1",
+      remove_paths: ["test/dup-b.test.ts"],
+      retain_paths: ["test/dup-a.test.ts"],
       preserved_obligations: ["OBL-DUP"],
       limitations: ["Only the selected suite was run."],
     });
@@ -184,6 +224,7 @@ describe("cleanup safety counterexamples", () => {
       generated_at: "2026-08-28T00:00:00Z",
       repository,
       candidates: [perfectRedundancyDraft],
+      evidence: evidenceFor([perfectRedundancyDraft]),
       protection,
     });
     const candidate = plan.candidates[0]!;
@@ -250,6 +291,7 @@ describe("packaged example reproduction", () => {
       generated_at: example.generated_at,
       repository: example.repository,
       candidates: drafts,
+      evidence: evidenceFor(drafts),
       protection,
       limitations: example.limitations,
     });

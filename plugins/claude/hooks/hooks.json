@@ -1,5 +1,5 @@
 {
-  "description": "Test Steward lifecycle checks",
+  "description": "Detestify lifecycle checks",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude session_start",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude session_start",
             "timeout": 5
           }
         ]
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude before_tool",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude before_tool",
             "timeout": 5
           }
         ]
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude after_tool",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude after_tool",
             "timeout": 5
           }
         ]
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude task_complete",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude task_complete",
             "timeout": 20
           }
         ]
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude subagent_stop",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude subagent_stop",
             "timeout": 20
           }
         ]
@@ -64,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude turn_stop",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude turn_stop",
             "timeout": 20
           }
         ]
@@ -75,7 +75,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude session_end",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude session_end",
             "timeout": 3
           }
         ]

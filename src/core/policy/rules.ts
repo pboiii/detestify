@@ -49,6 +49,8 @@ export interface PolicyRule {
   readonly notAppliesAction: RuleAction;
   /** Recommended evidence placement when this rule recommends, else null. */
   readonly target: RuleTarget | null;
+  /** Fields a caller-resolved target must satisfy when no universal target exists. */
+  readonly targetConstraints?: Partial<RuleTarget>;
   /** Materiality axes of the obligation when this rule recommends, else null. */
   readonly obligationAxes: RuleObligationAxes | null;
 }
@@ -110,13 +112,8 @@ export const POLICY_RULES: readonly PolicyRule[] = [
       "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
     appliesAction: "recommend",
     notAppliesAction: "no_test",
-    target: {
-      scope: "narrow",
-      purpose: "functional",
-      technique: "example",
-      cadence: "pull_request",
-      failure_class: "distinct-behavior",
-    },
+    target: null,
+    targetConstraints: { purpose: "regression" },
     obligationAxes: {
       consequence: "degraded",
       exposure: "user_facing",
@@ -202,13 +199,8 @@ export const POLICY_RULES: readonly PolicyRule[] = [
       "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
     appliesAction: "recommend",
     notAppliesAction: "no_test",
-    target: {
-      scope: "integration",
-      purpose: "performance",
-      technique: "example",
-      cadence: "nightly",
-      failure_class: "nonfunctional-obligation",
-    },
+    target: null,
+    targetConstraints: {},
     obligationAxes: {
       consequence: "degraded",
       exposure: "user_facing",
@@ -248,13 +240,8 @@ export const POLICY_RULES: readonly PolicyRule[] = [
       "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
     appliesAction: "recommend",
     notAppliesAction: "no_test",
-    target: {
-      scope: "narrow",
-      purpose: "functional",
-      technique: "example",
-      cadence: "pull_request",
-      failure_class: "distinct-behavior",
-    },
+    target: null,
+    targetConstraints: {},
     obligationAxes: {
       consequence: "degraded",
       exposure: "user_facing",
@@ -271,13 +258,8 @@ export const POLICY_RULES: readonly PolicyRule[] = [
       "Emit advisory or INSUFFICIENT_EVIDENCE; never gate.",
     appliesAction: "recommend",
     notAppliesAction: "no_test",
-    target: {
-      scope: "narrow",
-      purpose: "functional",
-      technique: "example",
-      cadence: "pull_request",
-      failure_class: "distinct-behavior",
-    },
+    target: null,
+    targetConstraints: {},
     obligationAxes: {
       consequence: "degraded",
       exposure: "user_facing",
@@ -358,7 +340,7 @@ export const POLICY_RULES: readonly PolicyRule[] = [
     notAppliesAction: "no_test",
     target: {
       scope: "narrow",
-      purpose: "functional",
+      purpose: "regression",
       technique: "example",
       cadence: "pull_request",
       failure_class: "distinct-behavior",

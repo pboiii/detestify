@@ -32,6 +32,7 @@ function classify(
   }
   if (
     !subject.hasCall &&
+    !subject.baseIdentifierFromCall &&
     subject.propertyPath.length > 0 &&
     assertion.expected.isLiteral
   ) {

@@ -7,8 +7,10 @@ import { CommanderError } from "commander";
 import { execFile } from "node:child_process";
 import {
   mkdtemp,
+  mkdir,
   readdir,
   readFile,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -19,9 +21,13 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { materializeFixture } from "../../scripts/materialize-fixtures.js";
 import { run as runVerifyChange } from "../../src/cli/commands/verify-change.js";
-import { latestReceipt } from "../../src/evidence/receipts.js";
+import { latestReceipt, stateDirectory } from "../../src/evidence/receipts.js";
 import { getValidator } from "../../src/core/schemas/index.js";
-import { stewardConfig, writeConfigFile } from "../unit/evidence/helpers.js";
+import {
+  initGitRepo,
+  stewardConfig,
+  writeConfigFile,
+} from "../unit/evidence/helpers.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -81,11 +87,14 @@ interface Report {
     readonly coverage: string;
     readonly mutation: string;
     readonly repository_commands_trusted: boolean;
+    readonly network_used: boolean;
   };
   readonly change: { readonly test_paths: readonly string[] };
   readonly evidence: ReadonlyArray<{
     readonly kind: string;
     readonly id: string;
+    readonly findings?: ReadonlyArray<{ readonly code: string }>;
+    readonly gate_trust?: string;
   }>;
   readonly decisions: ReadonlyArray<{
     readonly gate_action: string;
@@ -156,7 +165,7 @@ beforeAll(async () => {
 
   configPath = await writeConfigFile(
     repoDir,
-    ".test-steward/config.json",
+    ".detestify/config.json",
     stewardConfig({ mode: "balanced" }),
   );
 
@@ -180,6 +189,7 @@ describe("task-03 trusted verify-change", () => {
     expect(report.command).toBe("verify-change");
     expect(report.capabilities.runner).toBe("vitest");
     expect(report.capabilities.repository_commands_trusted).toBe(true);
+    expect(report.capabilities.network_used).toBe(true);
 
     const verdict = report.decisions[0];
     expect(verdict).toMatchObject({
@@ -188,7 +198,7 @@ describe("task-03 trusted verify-change", () => {
       outcome: "EXISTING_TEST_UPDATE_CANDIDATE",
     });
 
-    const found = await latestReceipt(path.join(repoDir, ".test-steward"));
+    const found = await latestReceipt(stateDirectory(repoDir));
     expect(found).not.toBeNull();
     const receipt = found!.receipt;
     expect(receipt.runner).toBe("vitest");
@@ -235,7 +245,7 @@ describe("task-03 trusted verify-change", () => {
       outcome: "NO_TEST_SUPPORTED",
     });
 
-    const found = await latestReceipt(path.join(repoDir, ".test-steward"));
+    const found = await latestReceipt(stateDirectory(repoDir));
     const receipt = found!.receipt;
     expect(receipt.passed).toBe(true);
     expect(receipt.stale).toBe(false);
@@ -251,11 +261,43 @@ describe("task-03 trusted verify-change", () => {
     expect(report.capabilities.mutation).toBe("not_requested");
   }, 120_000);
 
+  it("treats a capped affected-test selection as insufficient evidence", async () => {
+    const cappedTests = path.join(repoDir, "test", "capped");
+    await mkdir(cappedTests);
+    await Promise.all(
+      Array.from({ length: 201 }, (_, index) =>
+        writeFile(
+          path.join(cappedTests, `affected-${index}.test.ts`),
+          `import { describe, expect, it } from 'vitest';\nimport { processWebhook } from '../../src/webhook.js';\ndescribe('affected ${index}', () => it('passes', () => expect(processWebhook).toBeTypeOf('function')));\n`,
+          "utf8",
+        ),
+      ),
+    );
+
+    const { exitCode, report } = await verifyChange();
+
+    expect(exitCode).toBe(0);
+    expect(report.decisions[0]).toMatchObject({
+      reason_code: "SELECTION_CAPPED",
+      gate_action: "advise",
+      outcome: "INSUFFICIENT_EVIDENCE",
+    });
+
+    const receipt = (await latestReceipt(stateDirectory(repoDir)))!.receipt;
+    expect(receipt.selected_test_files).toHaveLength(200);
+    expect(receipt.selection_complete).toBe(false);
+    expect(receipt.results?.failed).toBe(0);
+    expect(receipt.passed).toBe(false);
+    expect(receipt.limitations.some((entry) => entry.includes("capped"))).toBe(
+      true,
+    );
+  }, 120_000);
+
   it("without explicit trust the same repo is report-only and runs nothing", async () => {
     const reportPath = path.join(base, "report-untrusted.json");
     let exitCode = 0;
     try {
-      // No --config: the discovered .test-steward/config.json cannot grant
+      // No --config: the discovered .detestify/config.json cannot grant
       // execution trust (TM-003).
       await runVerifyChange({ repo: repoDir, report: reportPath });
     } catch (error) {
@@ -264,6 +306,7 @@ describe("task-03 trusted verify-change", () => {
     expect(exitCode).toBe(0);
     const report = JSON.parse(await readFile(reportPath, "utf8")) as Report;
     expect(report.capabilities.repository_commands_trusted).toBe(false);
+    expect(report.capabilities.network_used).toBe(false);
     expect(report.evidence.some((record) => record.kind === "runtime")).toBe(
       false,
     );
@@ -271,4 +314,146 @@ describe("task-03 trusted verify-change", () => {
       report.limitations.some((entry) => entry.includes("report-only")),
     ).toBe(true);
   }, 60_000);
+});
+
+describe("workspace-local verify-change evidence", () => {
+  it("runs from the selected package and rejects an omitted selected file", async () => {
+    const workspaceRepo = path.join(base, "workspace-repo");
+    const workspace = path.join(workspaceRepo, "apps", "api");
+    await mkdir(path.join(workspace, "node_modules", "vitest"), {
+      recursive: true,
+    });
+    await writeFile(path.join(workspaceRepo, ".gitignore"), "node_modules\n");
+    await writeFile(path.join(workspaceRepo, "package.json"), "{}");
+    await writeFile(
+      path.join(workspace, "package.json"),
+      JSON.stringify({
+        type: "module",
+        devDependencies: { vitest: "1.0.0" },
+      }),
+    );
+    await writeFile(
+      path.join(workspace, "node_modules", "vitest", "package.json"),
+      JSON.stringify({ version: "1.0.0" }),
+    );
+    await writeFile(
+      path.join(workspace, "node_modules", "vitest", "vitest.mjs"),
+      `import { writeFileSync } from "node:fs";
+import path from "node:path";
+const output = process.argv.find((arg) => arg.startsWith("--outputFile="))?.slice("--outputFile=".length);
+if (output === undefined) throw new Error("missing output");
+writeFileSync(output, JSON.stringify({
+  numTotalTests: 1,
+  numPassedTests: 1,
+  numFailedTests: 0,
+  success: true,
+  testResults: [{ name: path.resolve("test/a.test.ts"), assertionResults: [] }],
+}));
+`,
+    );
+    await initGitRepo(workspaceRepo);
+    await mkdir(path.join(workspace, "test"));
+    await writeFile(
+      path.join(workspace, "test", "a.test.ts"),
+      "import { test } from 'vitest';\ntest('a');\n",
+    );
+    await writeFile(
+      path.join(workspace, "test", "b.test.ts"),
+      "import { test } from 'vitest';\ntest('b');\n",
+    );
+    const workspaceConfig = await writeConfigFile(
+      workspaceRepo,
+      "steward.json",
+      stewardConfig(),
+    );
+    const reportPath = path.join(base, "workspace-report.json");
+
+    await runVerifyChange({
+      repo: workspaceRepo,
+      config: workspaceConfig,
+      report: reportPath,
+    });
+
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as Report;
+    expect(report.decisions[0]).toMatchObject({
+      outcome: "INSUFFICIENT_EVIDENCE",
+      gate_action: "advise",
+      reason_code: "SELECTED_TEST_FILES_NOT_EXECUTED",
+    });
+    const runtime = report.evidence.find(
+      (record) => record.id === "verify-change-receipt",
+    );
+    expect(runtime?.findings?.[0]?.code).toBe("VERIFICATION_INCOMPLETE");
+    expect(runtime?.gate_trust).toBe("advisory_only");
+    const receipt = (await latestReceipt(stateDirectory(workspaceRepo)))!
+      .receipt;
+    expect(receipt.passed).toBe(false);
+    expect(receipt.command.cwd).toBe(await realpath(workspace));
+    expect(receipt.selected_test_files).toEqual([
+      "apps/api/test/a.test.ts",
+      "apps/api/test/b.test.ts",
+    ]);
+    expect(receipt.command.argv).toContain("test/a.test.ts");
+    expect(receipt.command.argv).toContain("test/b.test.ts");
+    expect(
+      receipt.limitations.some((entry) =>
+        entry.includes("did not exactly cover every selected test file"),
+      ),
+    ).toBe(true);
+  }, 30_000);
+});
+
+describe("node:test verify-change evidence", () => {
+  it("runs and receipts the exact selected file without a package script", async () => {
+    const nodeRepo = path.join(base, "node-test-repo");
+    await mkdir(path.join(nodeRepo, "src"), { recursive: true });
+    await mkdir(path.join(nodeRepo, "test"));
+    await writeFile(
+      path.join(nodeRepo, "package.json"),
+      JSON.stringify({
+        type: "module",
+        scripts: { test: "node scripts/run-tests.mjs" },
+      }),
+    );
+    await writeFile(
+      path.join(nodeRepo, "src/math.js"),
+      "export const add = (left, right) => left + right;\n",
+    );
+    await writeFile(
+      path.join(nodeRepo, "test/math.test.js"),
+      "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { add } from '../src/math.js';\ntest('adds', () => assert.equal(add(2, 3), 5));\n",
+    );
+    await initGitRepo(nodeRepo);
+    await writeFile(
+      path.join(nodeRepo, "src/math.js"),
+      "export const add = (left, right) => left + right;\n// verified change\n",
+    );
+    const nodeConfig = await writeConfigFile(
+      nodeRepo,
+      ".detestify/config.json",
+      stewardConfig(),
+    );
+    const reportPath = path.join(base, "node-test-report.json");
+
+    await runVerifyChange({
+      repo: nodeRepo,
+      config: nodeConfig,
+      report: reportPath,
+    });
+
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as Report;
+    expect(report.capabilities.runner).toBe("node:test");
+    const receipt = (await latestReceipt(stateDirectory(nodeRepo)))!.receipt;
+    expect(receipt).toMatchObject({
+      runner: "node:test",
+      passed: true,
+      selected_test_files: ["test/math.test.js"],
+    });
+    expect(receipt.command.argv).toEqual([
+      process.execPath,
+      "--test",
+      "--test-reporter=junit",
+      "test/math.test.js",
+    ]);
+  }, 30_000);
 });

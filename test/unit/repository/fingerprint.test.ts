@@ -1,5 +1,13 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  truncate,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -64,6 +72,19 @@ describe("diff fingerprint", () => {
     expect(after.fingerprint).not.toBe(before.fingerprint);
   });
 
+  it("changes when a changed regular file becomes executable", async () => {
+    const file = path.join(repo, "src/new.ts");
+    await chmod(file, 0o644);
+    const before = await fingerprintDiff(await snapshotRepository(repo));
+    try {
+      await chmod(file, 0o755);
+      const after = await fingerprintDiff(await snapshotRepository(repo));
+      expect(after.fingerprint).not.toBe(before.fingerprint);
+    } finally {
+      await chmod(file, 0o644);
+    }
+  });
+
   it("does not depend on changed-file input order", async () => {
     const snapshot = await snapshotRepository(repo);
     const reversed = {
@@ -88,6 +109,20 @@ describe("diff fingerprint", () => {
     expect(result.limitations.some((l) => l.includes("src/ghost.ts"))).toBe(
       true,
     );
+  });
+
+  it("does not buffer an oversized changed file", async () => {
+    const file = path.join(repo, "src/large.bin");
+    await writeFile(file, "");
+    await truncate(file, 64 * 1024 * 1024 + 1);
+    try {
+      const result = await fingerprintDiff(await snapshotRepository(repo));
+      expect(
+        result.limitations.some((entry) => entry.includes("large.bin")),
+      ).toBe(true);
+    } finally {
+      await rm(file);
+    }
   });
 });
 

@@ -1,50 +1,58 @@
 # Codex plugin
 
-Test Steward for the Codex view and Codex CLI hook runtime. The layout
-follows `spec/hosts/codex-hook-package.md`:
+Detestify for Codex CLI 0.147.0. The plugin contains its own Node.js hook
+runtime; it does not depend on this repository's `dist/` directory.
 
 ```text
 plugins/openai/
   .codex-plugin/plugin.json
   hooks/hooks.json
-  bin/test-steward-hook
-  skills/test-steward/SKILL.md
+  bin/detestify-hook
+  runtime/entry.js
+  schemas/*.schema.json
+  skills/detestify/SKILL.md
   README.md
 ```
 
 ## Install
 
-Installation is always explicit. Place `plugins/openai/` in a supported
-plugin directory, review the exact hook definition hash, and trust it through
-`/hooks`. Plugin installation does not automatically trust bundled hooks;
-changed definitions require new review.
+From the repository root:
 
-The launcher `bin/test-steward-hook` resolves the installed CLI distribution
-(`dist/src/hooks/entry.js`) and never evaluates repository configuration.
-`TEST_STEWARD_HOOK_ENTRY` overrides the entry path for testing.
+```sh
+npm run build
+codex plugin marketplace add .
+codex plugin add detestify@detestify
+```
+
+Run `/hooks` in a fresh Codex session. Review the Detestify commands and
+trust them only if the paths point inside the installed plugin. Changed hook
+definitions require another review. The hooks run with your user permissions;
+they are a guardrail, not a sandbox. The launcher accepts Node.js 22 or newer
+only from standard user-managed or system installation directories.
 
 ## Behavior
 
 - Reads the raw Codex hook payload from stdin.
-- Stores a redacted compatibility reference in plugin data.
+- Stores only bounded structured invocation receipts in private user state.
 - Normalizes to the `hook-io.schema.json` invocation.
-- Invokes the same core the `test-steward` CLI and Claude wrapper use.
+- Invokes the same core the `detestify` CLI and Claude wrapper use.
 - Translates the portable decision into the event-specific Codex output.
-- Stop hooks request at most one remediation continuation per
-  host/session/repository key; repeated stops always allow.
+- Stop hooks request at most one remediation continuation for a normalized
+  host, session, turn-or-diff, and subagent identity; a repeat for that work
+  item allows.
 
 `TaskCompleted` is deliberately not registered: the current Codex runtime
 does not expose that event, and the adapter never synthesizes `task_complete`
-from Stop. Ordinary ChatGPT Chat or Work conversations are not a certified
-hook surface.
+from Stop. Ordinary ChatGPT Chat or Work conversations do not load these Codex
+hooks.
 
 ## Uninstall
 
-1. Disable or remove the plugin through the host.
+1. Run `codex plugin remove detestify@detestify`.
 2. Confirm the hook source disappears from `/hooks`.
-3. Optionally delete Test Steward-owned state under `.test-steward/`.
-4. Run `test-steward doctor` to confirm no hook executable remains.
+3. Optionally run `codex plugin marketplace remove detestify`.
+4. Optionally remove Detestify state from your user state directory.
 
-Alpha certification covers the pinned Codex release on macOS and Linux only;
-live payload capture is still pending (spec conflict CON-003). Alpha software
-under the Apache-2.0 license; see the repository `NOTICE`.
+This alpha package targets macOS and Linux. Installation does not prove that
+every host event fired; validate the hooks in the installed host before relying
+on them.

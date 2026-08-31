@@ -68,7 +68,7 @@ plugins/
   claude/
   openai/
 skills/
-  test-steward/
+  detestify/
 test/
   unit/
   integration/
@@ -90,7 +90,7 @@ Required intent:
 
 - ESM package (`"type": "module"`).
 - Node engine selected and pinned during M0 after compatibility verification.
-- `bin.test-steward` points to the compiled CLI launcher.
+- `bin.detestify` points to the compiled CLI launcher.
 - `exports` exposes only stable programmatic contracts needed by plugin wrappers.
 - Files include compiled CLI/core, schemas, license/notice, skill, and plugin assets.
 - Scripts match `IMPLEMENTATION_BRIEF.md` exactly.
@@ -126,19 +126,19 @@ Required intent:
 
 Before installation, pin exact versions and verify each LICENSE file and transitive inventory. Do not add a Git library until native Git subprocess behavior proves insufficient. Do not add a shell-command convenience package that defaults to shell interpolation.
 
-## 5. Test runner for Test Steward
+## 5. Test runner for Detestify
 
 Use Vitest for the implementation repository because the first ecosystem and fixtures are JS/TS, its programmatic/CLI features are already in scope, and it supports fast unit/integration tests. Hidden benchmark oracles remain independent harness inputs and may run through a dedicated Vitest configuration.
 
 ## 6. Build outputs
 
 ```text
-dist/bin/test-steward.js
+dist/bin/detestify.js
 dist/src/... compiled modules
 dist/schemas/*.json
 plugins/claude/...
 plugins/openai/...
-skills/test-steward/...
+skills/detestify/...
 ```
 
 The package must not write hooks during install. Plugin install/trust is an explicit user action.

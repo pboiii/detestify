@@ -1,12 +1,7 @@
 import { Command, CommanderError } from "commander";
 import { EXIT_CODES, type ExitCode } from "./exit-codes.js";
-import { runDoctor } from "./commands/doctor.js";
-import { run as runPlan } from "./commands/plan.js";
-import { run as runVerifyChange } from "./commands/verify-change.js";
-import { run as runInventory } from "./commands/inventory.js";
-import { run as runAudit } from "./commands/audit.js";
-import { run as runCleanupPlan } from "./commands/cleanup-plan.js";
 import type { CommandOptions } from "./options.js";
+import { CLI_VERSION } from "./version.js";
 
 function addCommonOptions(command: Command): Command {
   return command
@@ -18,33 +13,54 @@ function addCommonOptions(command: Command): Command {
 
 export function createProgram(): Command {
   const program = new Command()
-    .name("test-steward")
+    .name("detestify")
     .description("Evidence-backed test portfolio policy CLI")
-    .version("0.0.0-alpha.0")
+    .version(CLI_VERSION)
     .showSuggestionAfterError()
     .exitOverride();
 
   addCommonOptions(program.command("plan").description("Plan test evidence"))
     .requiredOption("--diff", "analyze the current diff")
     .option("--base <revision>", "base revision for the diff")
-    .action(runPlan);
+    .action(async (options: CommandOptions) =>
+      (await import("./commands/plan.js")).run(options),
+    );
   addCommonOptions(
     program.command("verify-change").description("Verify a completed change"),
   )
     .option("--base <revision>", "base revision for the diff")
-    .action(runVerifyChange);
+    .action(async (options: CommandOptions) =>
+      (await import("./commands/verify-change.js")).run(options),
+    );
   addCommonOptions(
     program.command("inventory").description("Inventory repository tests"),
-  ).action(runInventory);
+  ).action(async (options: CommandOptions) =>
+    (await import("./commands/inventory.js")).run(options),
+  );
   addCommonOptions(
     program.command("audit").description("Audit the test portfolio"),
-  ).action(runAudit);
+  ).action(async (options: CommandOptions) =>
+    (await import("./commands/audit.js")).run(options),
+  );
   addCommonOptions(
     program.command("cleanup-plan").description("Plan read-only cleanup"),
-  ).action(runCleanupPlan);
+  )
+    .option(
+      "--historical-faults <manifest>",
+      "repository-owned inert historical-fault manifest",
+    )
+    .option("--candidate <id>", "cleanup candidate to validate")
+    .option(
+      "--exclude-test <path...>",
+      "candidate test path(s) excluded from the retained suite",
+    )
+    .action(async (options: CommandOptions) =>
+      (await import("./commands/cleanup-plan.js")).run(options),
+    );
   addCommonOptions(
     program.command("doctor").description("Check local compatibility"),
   ).action(async (options: CommandOptions) => {
+    const { runDoctor } = await import("./commands/doctor.js");
     const report = await runDoctor(options);
     if (options.json === "-") {
       process.stdout.write(`${JSON.stringify(report)}\n`);
@@ -67,7 +83,13 @@ export function createProgram(): Command {
 
 function classifyError(error: unknown): ExitCode {
   if (error instanceof CommanderError) {
-    return error.code === "test-steward.notImplemented"
+    if (
+      error.code === "commander.helpDisplayed" ||
+      error.code === "commander.version"
+    ) {
+      return EXIT_CODES.OK;
+    }
+    return error.code === "detestify.notImplemented"
       ? (error.exitCode as ExitCode)
       : EXIT_CODES.USAGE_ERROR;
   }
@@ -100,7 +122,8 @@ export async function main(
     const exitCode = classifyError(error);
     if (
       !(error instanceof CommanderError) ||
-      error.code !== "commander.helpDisplayed"
+      (error.code !== "commander.helpDisplayed" &&
+        error.code !== "commander.version")
     ) {
       const message = error instanceof Error ? error.message : String(error);
       process.stderr.write(`${message}\n`);

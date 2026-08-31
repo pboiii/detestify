@@ -3,9 +3,8 @@
 // repository layer can adapt this module without a code dependency (ADR-002).
 // Every fact is extracted by parsing text; repository code is never executed.
 
-import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { realpathContained } from "../repository/paths.js";
+import { readContainedRegularFile } from "../repository/paths.js";
 import {
   Node,
   Project,
@@ -22,17 +21,16 @@ import {
 /**
  * Read a changed/inventoried repository file after symlink containment
  * (TM-002/TM-005). Changed paths come from Git and may be symlinks that
- * escape the repository root; `realpathContained` resolves symlinks and
- * throws for any that leave the root, so the caller skips it instead of
- * reading — and leaking — an external file's contents into analysis output.
- * A contained file (including an in-repo symlink) resolves to its real path
- * and is read exactly as before.
+ * escape the repository root; the shared reader resolves symlinks, enforces
+ * containment and regular-file type, and caps the read before parsing.
  */
 export async function readContainedFile(
   repoRoot: string,
   file: string,
 ): Promise<string> {
-  return readFile(await realpathContained(repoRoot, file), "utf8");
+  return (
+    await readContainedRegularFile(repoRoot, file, SOURCE_FILE_SIZE_LIMIT)
+  ).toString("utf8");
 }
 
 /** Capability mode requested for an analysis run. */
@@ -133,6 +131,45 @@ export interface TypeScriptAnalysis {
   readonly files: readonly SourceFileFacts[];
 }
 
+/**
+ * True when TypeScript erases both revisions to identical runtime code.
+ * This proves only that no JavaScript behavior changed; type-level contracts
+ * still belong to the repository's existing typecheck.
+ */
+export function hasEquivalentRuntimeEmit(
+  before: string,
+  after: string,
+  fileName: string,
+): boolean {
+  const emit = (source: string): string | null => {
+    const result = ts.transpileModule(source, {
+      fileName,
+      reportDiagnostics: true,
+      compilerOptions: {
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.ESNext,
+        jsx: ts.JsxEmit.Preserve,
+        removeComments: true,
+        sourceMap: false,
+        inlineSourceMap: false,
+        declaration: false,
+        newLine: ts.NewLineKind.LineFeed,
+      },
+    });
+    if (
+      result.diagnostics?.some(
+        (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
+      )
+    ) {
+      return null;
+    }
+    return result.outputText;
+  };
+  const beforeEmit = emit(before);
+  const afterEmit = emit(after);
+  return beforeEmit !== null && afterEmit !== null && beforeEmit === afterEmit;
+}
+
 /** TypeScript compiler options used for module specifier resolution. */
 export interface ResolutionContext {
   readonly repoRoot: string;
@@ -152,11 +189,14 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".cjs",
 ]);
 
-const TS_TO_DECLARATION_EXTENSION: Record<string, string> = {
-  ".js": ".ts",
-  ".jsx": ".tsx",
-  ".mjs": ".mts",
-  ".cjs": ".cts",
+const SOURCE_FILE_SIZE_LIMIT = 8 * 1024 * 1024;
+const TSCONFIG_SIZE_LIMIT = 1024 * 1024;
+
+const TS_TO_DECLARATION_EXTENSIONS: Record<string, readonly string[]> = {
+  ".js": [".ts", ".tsx"],
+  ".jsx": [".tsx"],
+  ".mjs": [".mts"],
+  ".cjs": [".cts"],
 };
 
 function toPosix(value: string): string {
@@ -196,9 +236,11 @@ function relativeCandidates(target: string): string[] {
   const extension = path.posix.extname(target).toLowerCase();
   const candidates: string[] = [];
   if (extension !== "" && SUPPORTED_EXTENSIONS.has(extension)) {
-    const remapped = TS_TO_DECLARATION_EXTENSION[extension] ?? extension;
+    const stem = target.slice(0, target.length - extension.length);
     candidates.push(
-      target.slice(0, target.length - extension.length) + remapped,
+      ...(TS_TO_DECLARATION_EXTENSIONS[extension] ?? [extension]).map(
+        (candidateExtension) => stem + candidateExtension,
+      ),
     );
     candidates.push(target);
   }
@@ -297,7 +339,13 @@ async function loadCompilerOptions(
   const absolutePath = path.join(repoRoot, tsconfigPath);
   let text: string;
   try {
-    text = await readFile(absolutePath, "utf8");
+    text = (
+      await readContainedRegularFile(
+        repoRoot,
+        tsconfigPath,
+        TSCONFIG_SIZE_LIMIT,
+      )
+    ).toString("utf8");
   } catch {
     return {
       options: {},
@@ -479,6 +527,27 @@ function extractExports(sourceFile: SourceFile): ExportedSymbolFact[] {
         push("export=", "unknown", "named");
       } else {
         push("default", "unknown", "default");
+      }
+    } else if (Node.isExpressionStatement(statement)) {
+      const expression = statement.getExpression();
+      if (!Node.isBinaryExpression(expression)) {
+        continue;
+      }
+      const left = expression.getLeft();
+      const right = expression.getRight();
+      if (
+        expression.getOperatorToken().getKind() === SyntaxKind.EqualsToken &&
+        Node.isPropertyAccessExpression(left) &&
+        left.getExpression().getText() === "module" &&
+        left.getName() === "exports" &&
+        Node.isObjectLiteralExpression(right)
+      ) {
+        for (const property of right.getProperties()) {
+          if (Node.isShorthandPropertyAssignment(property)) {
+            const name = property.getName();
+            push(name, locals.get(name) ?? "unknown", "named");
+          }
+        }
       }
     }
   }

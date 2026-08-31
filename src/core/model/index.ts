@@ -82,6 +82,7 @@ export type DecisionDomain = "change" | "cleanup";
 
 export type ChangeOutcome =
   | "NO_TEST_SUPPORTED"
+  | "EXISTING_EVIDENCE_SUFFICIENT"
   | "EXISTING_TEST_UPDATE_CANDIDATE"
   | "NEW_TEST_CANDIDATE"
   | "INSUFFICIENT_EVIDENCE";

@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://test-steward.dev/schemas/hook-io.schema.json",
+  "title": "Normalized hook input or decision",
+  "description": "Host-neutral alpha hook contract. The two oneOf branches reproduce the owner-ratified envelopes without a new discriminator.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/invocation"
+    },
+    {
+      "$ref": "#/$defs/decision"
+    }
+  ],
+  "$defs": {
+    "invocation": {
+      "description": "Normalized input passed from a supported host adapter to the core.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "host",
+        "host_version",
+        "event",
+        "session_id",
+        "turn_id",
+        "cwd",
+        "repo_root",
+        "tool",
+        "loop_guard",
+        "raw_payload_ref"
+      ],
+      "properties": {
+        "schema_version": {
+          "description": "Hook contract version.",
+          "const": "1.0"
+        },
+        "host": {
+          "description": "Originating host or non-host caller.",
+          "enum": ["claude", "codex", "direct", "ci"]
+        },
+        "host_version": {
+          "description": "Host version string, or null when unavailable.",
+          "type": ["string", "null"]
+        },
+        "event": {
+          "description": "Normalized lifecycle event.",
+          "enum": [
+            "session_start",
+            "before_tool",
+            "after_tool",
+            "task_complete",
+            "subagent_stop",
+            "turn_stop",
+            "session_end"
+          ]
+        },
+        "session_id": {
+          "description": "Host session identifier, or null.",
+          "type": ["string", "null"]
+        },
+        "turn_id": {
+          "description": "Host turn identifier, or null.",
+          "type": ["string", "null"]
+        },
+        "cwd": {
+          "description": "Canonical absolute working directory. Alpha supports macOS and Linux paths.",
+          "type": "string",
+          "pattern": "^/"
+        },
+        "repo_root": {
+          "description": "Canonical absolute Git root, or null when no repository is resolved.",
+          "type": ["string", "null"]
+        },
+        "tool": {
+          "description": "References for a tool event; all fields are null for non-tool events.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "input_ref", "result_ref"],
+          "properties": {
+            "name": {
+              "description": "Host tool name, or null.",
+              "type": ["string", "null"]
+            },
+            "input_ref": {
+              "description": "Reference to bounded/redacted tool input stored outside the envelope, or null.",
+              "type": ["string", "null"]
+            },
+            "result_ref": {
+              "description": "Reference to bounded/redacted tool result stored outside the envelope, or null.",
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "loop_guard": {
+          "description": "State used to prevent repeated host continuation.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["already_remediated", "attempt"],
+          "properties": {
+            "already_remediated": {
+              "description": "Whether the host or session state shows a prior remediation continuation.",
+              "type": "boolean"
+            },
+            "attempt": {
+              "description": "Zero-based stop-verification attempt.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "raw_payload_ref": {
+          "description": "Reference to the raw, redacted host payload, or null.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "decision": {
+      "description": "Normalized result returned by the core for host translation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "action",
+        "confidence",
+        "reason_code",
+        "summary",
+        "remediation",
+        "report_path",
+        "limitations",
+        "loop_guard"
+      ],
+      "properties": {
+        "schema_version": {
+          "description": "Hook contract version.",
+          "const": "1.0"
+        },
+        "action": {
+          "description": "Portable host-independent action.",
+          "enum": ["allow", "advise", "request_remediation", "deny_tool"]
+        },
+        "confidence": {
+          "description": "Decision confidence.",
+          "enum": ["high", "medium", "low", "unknown"]
+        },
+        "reason_code": {
+          "description": "Stable machine-readable reason.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{2,80}$"
+        },
+        "summary": {
+          "description": "Short model-visible summary within the aggregate 6,000-byte budget.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "remediation": {
+          "description": "Actionable continuation instruction, or null.",
+          "type": ["string", "null"],
+          "maxLength": 1500
+        },
+        "report_path": {
+          "description": "Path to detailed report, or null.",
+          "type": ["string", "null"]
+        },
+        "limitations": {
+          "description": "Limitations disclosed to the host and user.",
+          "type": "array",
+          "items": {
+            "description": "A limitation.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "loop_guard": {
+          "description": "Next bounded loop state.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["next_attempt", "max_attempts"],
+          "properties": {
+            "next_attempt": {
+              "description": "Attempt value for a possible continuation.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "max_attempts": {
+              "description": "Total verification attempts including initial stop and one continuation.",
+              "const": 2
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "request_remediation",
+                "description": "Conditional selector for action."
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "remediation": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Conditional constraint for remediation."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "enum": ["allow", "advise", "deny_tool"],
+                "description": "Conditional selector for action."
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "remediation": {
+                "type": ["string", "null"],
+                "description": "Conditional constraint for remediation."
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

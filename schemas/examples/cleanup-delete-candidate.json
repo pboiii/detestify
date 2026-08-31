@@ -11,13 +11,21 @@
     {
       "id": "cand-exact-duplicate",
       "test_paths": ["test/math.duplicate.test.ts", "test/math.test.ts"],
+      "remove_paths": ["test/math.duplicate.test.ts"],
+      "retain_paths": ["test/math.test.ts"],
       "action": "DELETE_CANDIDATE",
       "obligation_ids": ["math.addition"],
+      "obligation_preservation": [
+        {
+          "obligation_id": "math.addition",
+          "retained_paths": ["test/math.test.ts"]
+        }
+      ],
       "structural_signals": ["ev-byte-identical", "ev-ast-identical"],
       "independent_signals": ["ev-worktree-counterfactual"],
       "protected_checks": [
         {
-          "source": ".test-steward/protected-tests.json",
+          "source": ".detestify/protected-tests.json",
           "passed": true,
           "detail": "Neither duplicate path is protected and the retained test owns the declared obligation."
         }
@@ -25,6 +33,9 @@
       "counterfactual": {
         "status": "passed",
         "commands_ref": "run:counterfactual-001",
+        "candidate_id": "cand-exact-duplicate",
+        "remove_paths": ["test/math.duplicate.test.ts"],
+        "retain_paths": ["test/math.test.ts"],
         "preserved_obligations": ["math.addition"],
         "limitations": [
           "Only the fixture acceptance and selected suite were run."
@@ -32,7 +43,7 @@
       },
       "worktree_validation": {
         "status": "passed",
-        "worktree_ref": "worktree:cleanup-001",
+        "worktree_ref": "run:counterfactual-001",
         "revision": "c0ffee",
         "cleanup_complete": true
       },

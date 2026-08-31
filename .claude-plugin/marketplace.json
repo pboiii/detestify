@@ -1,0 +1,19 @@
+{
+  "name": "detestify",
+  "owner": {
+    "name": "Detestify"
+  },
+  "metadata": {
+    "description": "Local Detestify plugins",
+    "version": "0.1.0-alpha.0"
+  },
+  "plugins": [
+    {
+      "name": "detestify",
+      "description": "Evidence-backed test portfolio guidance and bounded verification",
+      "version": "0.1.0-alpha.0",
+      "source": "./plugins/claude",
+      "category": "development"
+    }
+  ]
+}

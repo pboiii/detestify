@@ -1,4 +1,5 @@
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -30,14 +31,44 @@ describe("trust gate (TM-003)", () => {
     expect(trust.mode).toBe("advisory");
     expect(trust.explicit).toBe(false);
     expect(trust.limitations).toEqual([]);
+    expect(trust.policyFingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect((await loadTrust(repo)).policyFingerprint).toBe(
+      trust.policyFingerprint,
+    );
   });
 
   it("an explicitly passed configuration grants execution trust", async () => {
-    await writeConfigFile(repo, "steward.json", stewardConfig());
+    const configPath = await writeConfigFile(
+      repo,
+      "steward.json",
+      stewardConfig(),
+    );
     const trust = await loadTrust(repo, "steward.json");
     expect(trust.runRepositoryCommands).toBe(true);
     expect(trust.mode).toBe("balanced");
     expect(trust.explicit).toBe(true);
+    expect(trust.policyFingerprint).toBe(
+      `sha256:${createHash("sha256")
+        .update(await readFile(configPath))
+        .digest("hex")}`,
+    );
+  });
+
+  it("a partial explicit runner grant remains report-only", async () => {
+    const config = stewardConfig();
+    await writeConfigFile(repo, "partial.json", {
+      ...config,
+      trusted_operations: {
+        ...(config["trusted_operations"] as Record<string, unknown>),
+        network_access: false,
+      },
+    });
+    const trust = await loadTrust(repo, "partial.json");
+    expect(trust.runRepositoryCommands).toBe(false);
+    expect(trust.explicit).toBe(true);
+    expect(trust.limitations).toContainEqual(
+      expect.stringContaining("partial grant"),
+    );
   });
 
   it("a discovered repository configuration never grants execution", async () => {
@@ -47,6 +78,9 @@ describe("trust gate (TM-003)", () => {
     expect(trust.mutationRequested).toBe(false);
     // Its inert policy data is still honored.
     expect(trust.mode).toBe("balanced");
+    expect(trust.policyFingerprint).toBe(
+      (await loadTrust(repo, DISCOVERED_CONFIG_PATH)).policyFingerprint,
+    );
     expect(
       trust.limitations.some((entry) => entry.includes("cannot grant")),
     ).toBe(true);
@@ -211,15 +245,118 @@ describe("plan-level policy verdict", () => {
     });
     expect(plan.strongestAction).not.toBe("request_remediation");
   });
+
+  it("does not treat an unrelated changed test as evidence for added behavior", async () => {
+    const trust = await loadTrust(repo);
+    const plan = evaluatePlanStage({
+      snapshot: snapshotOf([
+        { path: "src/price.ts", status: "added" },
+        { path: "test/unrelated.test.ts", status: "added" },
+      ]),
+      trust,
+      observedAt: OBSERVED_AT,
+      changedTestFiles: ["test/unrelated.test.ts"],
+      idPrefix: "t",
+    });
+    expect(plan.strongestDecision?.outcome).toBe("NEW_TEST_CANDIDATE");
+    expect(plan.strongestDecision?.target.test_path).toBeNull();
+    expect(plan.obligations[0]?.materiality.evidence_gap).toBe("material");
+  });
+
+  it("uses an explicitly relevant changed test for only its mapped path", async () => {
+    const trust = await loadTrust(repo);
+    const plan = evaluatePlanStage({
+      snapshot: snapshotOf([
+        { path: "src/price.ts", status: "added" },
+        { path: "test/price.test.ts", status: "added" },
+      ]),
+      trust,
+      observedAt: OBSERVED_AT,
+      changedTestFiles: ["test/price.test.ts"],
+      relevantChangedTests: [
+        {
+          testPath: "test/price.test.ts",
+          changedPath: "src/price.ts",
+        },
+      ],
+      idPrefix: "t",
+    });
+    expect(plan.strongestDecision?.outcome).toBe(
+      "EXISTING_TEST_UPDATE_CANDIDATE",
+    );
+    expect(plan.strongestDecision?.target.test_path).toBe("test/price.test.ts");
+    expect(plan.obligations[0]?.materiality.evidence_gap).toBe("partial");
+  });
+
+  it("requires an obligation and failure-class binding before existing evidence is sufficient", async () => {
+    await writeConfigFile(
+      repo,
+      "steward.json",
+      stewardConfig({
+        critical_paths: [
+          {
+            pattern: "src/payments/**",
+            obligation_ids: ["OB-PAY-1"],
+            materiality_floor: "T2",
+          },
+        ],
+        declared_obligations: [
+          {
+            id: "OB-PAY-1",
+            statement: "A charge is executed at most once.",
+            source: "docs/policy.md",
+            gate_policy: "balanced",
+          },
+        ],
+      }),
+    );
+    const trust = await loadTrust(repo, "steward.json");
+    const input = {
+      snapshot: snapshotOf([{ path: "src/payments/charge.ts" }]),
+      trust,
+      observedAt: OBSERVED_AT,
+      changedTestFiles: [],
+      idPrefix: "t",
+    } as const;
+    const unbound = evaluatePlanStage({
+      ...input,
+      existingEvidenceDeterminations: [
+        {
+          testPath: "test/payments/charge.test.ts",
+          changedPath: "src/payments/charge.ts",
+          disposition: "sufficient",
+        },
+      ],
+    });
+    expect(unbound.strongestDecision?.outcome).toBe(
+      "EXISTING_TEST_UPDATE_CANDIDATE",
+    );
+    expect(unbound.strongestDecision?.target.test_path).toBe(
+      "test/payments/charge.test.ts",
+    );
+
+    const bound = evaluatePlanStage({
+      ...input,
+      existingEvidenceDeterminations: [
+        {
+          testPath: "test/payments/charge.test.ts",
+          changedPath: "src/payments/charge.ts",
+          disposition: "sufficient",
+          obligationRefs: ["OB-PAY-1:docs/policy.md"],
+          failureClass: "distinct-behavior",
+        },
+      ],
+    });
+    expect(bound.strongestDecision?.outcome).toBe(
+      "EXISTING_EVIDENCE_SUFFICIENT",
+    );
+  });
 });
 
 describe("state-dir filtering and glob matching", () => {
-  it("stripOwnState removes .test-steward paths from the snapshot", () => {
+  it("stripOwnState removes .detestify paths from the snapshot", () => {
     const stripped = stripOwnState(
-      snapshotOf([
-        { path: ".test-steward/reports/a.json" },
-        { path: "src/a.ts" },
-      ]),
+      snapshotOf([{ path: ".detestify/reports/a.json" }, { path: "src/a.ts" }]),
     );
     expect(stripped.changedFiles.map((file) => file.path)).toEqual([
       "src/a.ts",

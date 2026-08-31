@@ -1,14 +1,34 @@
 {
-  "name": "test-steward",
-  "version": "0.0.0-alpha.0",
+  "name": "detestify",
+  "version": "0.1.0-alpha.0",
   "description": "Evidence-backed test portfolio policy CLI for coding agents",
   "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pboiii/detestify.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pboiii/detestify/issues"
+  },
+  "homepage": "https://github.com/pboiii/detestify#readme",
+  "keywords": [
+    "testing",
+    "code-agents",
+    "claude-code",
+    "codex",
+    "test-maintenance"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "tag": "alpha"
+  },
   "engines": {
     "node": ">=22.13.0"
   },
   "bin": {
-    "test-steward": "./dist/bin/test-steward.js"
+    "detestify": "./dist/bin/detestify.js"
   },
   "exports": {
     ".": {
@@ -17,6 +37,8 @@
     }
   },
   "files": [
+    ".agents",
+    ".claude-plugin",
     "dist/bin",
     "dist/src",
     "dist/schemas",
@@ -27,6 +49,7 @@
     "THIRD_PARTY_LICENSES"
   ],
   "scripts": {
+    "prepack": "npm run build",
     "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "npm run build --silent && eslint dist/src dist/bin scripts/*.mjs eslint.config.js",
@@ -50,14 +73,15 @@
     "ajv": "8.20.0",
     "commander": "14.0.2",
     "ts-morph": "27.0.2",
-    "typescript": "5.9.3",
-    "yaml": "2.9.0"
+    "typescript": "5.9.3"
   },
   "devDependencies": {
     "@types/node": "22.18.1",
+    "esbuild": "0.25.12",
+    "eslint": "10.2.1",
     "prettier": "3.6.2",
     "tsx": "4.20.5",
     "vitest": "3.2.7",
-    "eslint": "10.2.1"
+    "yaml": "2.9.0"
   }
 }

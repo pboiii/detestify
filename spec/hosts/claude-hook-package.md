@@ -9,12 +9,12 @@
 plugins/claude/
   .claude-plugin/plugin.json
   hooks/hooks.json
-  bin/test-steward-hook
-  skills/test-steward/SKILL.md
+  bin/detestify-hook
+  skills/detestify/SKILL.md
   README.md
 ```
 
-`bin/test-steward-hook` is a thin launcher into the installed TypeScript CLI. It reads the raw event from stdin, writes a redacted raw fixture/reference outside the repository, normalizes the event, invokes the core, and translates the portable decision into the event-specific Claude JSON shape.
+`bin/detestify-hook` is a thin launcher into the installed TypeScript CLI. It reads the raw event from stdin, records bounded invocation data outside the repository, normalizes the event, invokes the core, and translates the portable decision into the event-specific Claude JSON shape.
 
 ## 2. Manifest
 
@@ -24,7 +24,7 @@ Illustrative required intent:
 
 ```json
 {
-  "name": "test-steward",
+  "name": "detestify",
   "version": "<package version>",
   "description": "Evidence-backed test portfolio guidance and bounded verification",
   "skills": "./skills/",
@@ -40,13 +40,13 @@ The package uses only synchronous command handlers for decisions. The implementa
 
 ```json
 {
-  "description": "Test Steward lifecycle checks",
+  "description": "Detestify lifecycle checks",
   "hooks": {
     "SessionStart": [{
       "matcher": "startup|resume|clear|compact",
       "hooks": [{
         "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude session_start",
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude session_start",
         "timeout": 5
       }]
     }],
@@ -54,7 +54,7 @@ The package uses only synchronous command handlers for decisions. The implementa
       "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
       "hooks": [{
         "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude before_tool",
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude before_tool",
         "timeout": 5
       }]
     }],
@@ -62,35 +62,35 @@ The package uses only synchronous command handlers for decisions. The implementa
       "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
       "hooks": [{
         "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude after_tool",
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude after_tool",
         "timeout": 5
       }]
     }],
     "TaskCompleted": [{
       "hooks": [{
         "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude task_complete",
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude task_complete",
         "timeout": 20
       }]
     }],
     "SubagentStop": [{
       "hooks": [{
         "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude subagent_stop",
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude subagent_stop",
         "timeout": 20
       }]
     }],
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude turn_stop",
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude turn_stop",
         "timeout": 20
       }]
     }],
     "SessionEnd": [{
       "hooks": [{
         "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/bin/test-steward-hook claude session_end",
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/detestify-hook claude session_end",
         "timeout": 3
       }]
     }]
@@ -138,7 +138,7 @@ The same rule applies to `SubagentStop` with agent identity included in the key.
 - Installation follows the current Claude plugin marketplace or local plugin path flow.
 - Users review plugin source and hooks before enabling.
 - `doctor` confirms package root, executable resolution, host version, hook discovery, schema compatibility, and writable private data location.
-- Repository-local Test Steward configuration is inert until explicit trust.
+- Repository-local Detestify configuration is inert until explicit trust.
 - The hook launcher never evaluates repository JavaScript/TypeScript configuration during discovery.
 
 ## 8. Uninstall
@@ -146,8 +146,8 @@ The same rule applies to `SubagentStop` with agent identity included in the key.
 Uninstall must:
 
 1. disable/remove the plugin through the host-supported mechanism;
-2. verify no Test Steward hooks remain active in `/hooks`;
-3. remove only Test Steward-owned session/cache data after explicit confirmation;
+2. verify no Detestify hooks remain active in `/hooks`;
+3. remove only Detestify-owned session/cache data after explicit confirmation;
 4. leave repository reports and user-authored configuration untouched;
 5. run `doctor` in detached mode to confirm no executable hook path remains.
 
