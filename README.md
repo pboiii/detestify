@@ -91,4 +91,8 @@ node dist/bin/detestify.js doctor --json=-
 
 `spec/` is the canonical policy and host contract. `planning/` and `archive/` preserve the implementation history.
 
+Tagged GitHub releases contain the verified package tarball and CycloneDX SBOM.
+npm publication is a separate manual workflow that publishes that exact release
+tarball only after npm authentication is configured.
+
 Licensed under Apache-2.0.

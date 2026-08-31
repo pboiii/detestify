@@ -1,7 +1,7 @@
 # Naming and availability report
 
-**Status:** `Detestify` is the selected public alpha name. Exact-name availability signals are favorable, but namespace reservation and legal clearance remain UNVERIFIED.
-**Access date:** 2026-08-30
+**Status:** `Detestify` is the selected public alpha name. Exact-name availability signals were rechecked immediately before release, but legal clearance remains UNVERIFIED.
+**Access date:** 2026-08-31
 
 ## Method limitation
 
@@ -12,7 +12,7 @@ Search-engine results and unauthenticated registry pages can reveal obvious coll
 | Candidate | GitHub | npm | PyPI | crates.io | Homebrew | Domain / product red flags | Assessment |
 |---|---|---|---|---|---|---|---|
 | `test-steward` | UNVERIFIED; no obvious exact developer-tool collision surfaced | Available signal only | UNVERIFIED | UNVERIFIED | UNVERIFIED | Descriptive; potential weak distinctiveness | Former internal/compatibility name |
-| `detestify` | `pboiii/detestify` exists privately | Exact package lookup returned not found | No exact package found | No exact package found | No exact formula found | Existing npm `detectify` and a live DETECTIFY software/security trademark are material similarity risks | **Selected public alpha name; no legal clearance** |
+| `detestify` | `pboiii/detestify` is reserved | Exact registry endpoint returned 404 | Exact project endpoint returned 404 | Exact sparse-index endpoint returned 404 | Exact formula endpoint returned 404 | `.com` and `.dev` RDAP lookups returned 404; existing npm `detectify` and a live DETECTIFY software/security trademark are material similarity risks | **Selected public alpha name; no legal clearance** |
 | `proofwarden` | UNVERIFIED; no obvious exact collision surfaced | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | Distinctive but broader than testing | **Fallback** |
 | `suitewarden` | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | Generic suite/security connotation | Reserve only if primary/fallback unavailable |
 | `testwright` | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | Strong resemblance to Playwright naming | Reject |
@@ -28,6 +28,15 @@ Search-engine results and unauthenticated registry pages can reveal obvious coll
 2. **Fallback:** `Proofwarden` / package candidate `proofwarden` only if the owner changes the name after legal review.
 
 `Detestify` is the public alpha decision. The earlier branding preference for `Test Steward` did not include direct namespace checks. The close-name npm package and trademark risk mean this report is not legal approval and must not be presented as clearance.
+
+## Latest direct technical check
+
+On 2026-08-31, the exact npm, PyPI, crates.io sparse-index, and Homebrew
+endpoints returned 404. GitHub search returned only the owned
+`pboiii/detestify` repository. RDAP lookups for `detestify.com` and
+`detestify.dev` also returned 404. These results are availability signals, not
+reservations or legal advice. npm authentication was deliberately not created
+or changed.
 
 ## Publication gate
 
