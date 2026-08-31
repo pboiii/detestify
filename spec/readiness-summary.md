@@ -1,6 +1,6 @@
 # Specification readiness summary
 
-**Status:** alpha implementation and product-purpose validation complete; public publication deferred
+**Status:** alpha released publicly on GitHub; npm publication deferred
 
 ## Fully specified alpha behavior
 
@@ -37,8 +37,8 @@ The tree now defines:
 
 ## Remaining publication and post-alpha work
 
-No open item blocks local alpha implementation or validation. Public npm publication remains deferred by owner direction. Namespace/legal review is still required before relying on the name publicly; contributor governance is required before accepting external contributions. Native Windows, Python, mutation adapters, marketplace submission, and broader real-repository sampling remain post-alpha work. Raw host payloads are not retained. The dual-host checks and one real-repository removal are directional evidence, not a statistical reduction claim. See `spec/handoff/open-register.md`.
+No open item blocks the public GitHub alpha or local validation. The verified package and SBOM are available from the [v0.1.0-alpha.0 release](https://github.com/pboiii/detestify/releases/tag/v0.1.0-alpha.0). Public npm publication remains deferred by owner direction. Legal name review is still required before broader promotion, and contributor governance is required before accepting external contributions. Native Windows, Python, mutation adapters, marketplace submission, and broader real-repository sampling remain post-alpha work. Raw host payloads are not retained. The dual-host checks and one real-repository removal are directional evidence, not a statistical reduction claim. See `spec/handoff/open-register.md`.
 
 ## Handoff determination
 
-The ruling's vertical slice and the owner-amended dual-host extension are implemented. Current installation, native receipt, historical replay, forward A/B, packaging, Linux, and performance evidence close the implementation-owned alpha items. Publication remains a separate action.
+The ruling's vertical slice and the owner-amended dual-host extension are implemented. Current installation, native receipt, historical replay, forward A/B, packaging, Linux, and performance evidence close the implementation-owned alpha items. The GitHub alpha is public and passed an unauthenticated release install plus isolated Claude and Codex marketplace installs. npm publication remains a separate deferred action.

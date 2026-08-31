@@ -66,14 +66,14 @@ Builds and npm packages include self-contained plugins. Review every hook before
 Claude Code:
 
 ```sh
-claude plugin marketplace add pboiii/detestify --scope user
+claude plugin marketplace add https://github.com/pboiii/detestify.git --scope user
 claude plugin install detestify@detestify --scope user
 ```
 
 Codex:
 
 ```sh
-codex plugin marketplace add pboiii/detestify
+codex plugin marketplace add https://github.com/pboiii/detestify.git
 codex plugin add detestify@detestify
 ```
 
