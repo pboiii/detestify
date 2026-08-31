@@ -4,13 +4,12 @@
 
 ## 1. Read-only first run
 
-The npm package is not published yet. Install the exact alpha from this trusted
-checkout, then point it at a JavaScript or TypeScript Git repository:
+The npm package is not published yet. Install the verified GitHub release
+tarball, then point it at a JavaScript or TypeScript Git repository:
 
 ```text
-npm ci --ignore-scripts
-npm run build
-npm install --global .
+npm install --global \
+  https://github.com/pboiii/detestify/releases/download/v0.1.0-alpha.0/detestify-0.1.0-alpha.0.tgz
 ```
 
 From the target repository:

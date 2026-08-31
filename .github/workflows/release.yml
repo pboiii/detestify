@@ -66,5 +66,6 @@ jobs:
           "${{ steps.pack.outputs.tarball }}"
           "$RUNNER_TEMP/detestify.cdx.json"
           --verify-tag
+          --prerelease
           --generate-notes
           --title "${{ steps.pack.outputs.package_name }} ${{ steps.pack.outputs.package_version }}"
