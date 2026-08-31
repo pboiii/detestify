@@ -53,6 +53,9 @@ Failure does not automatically authorize a full rewrite.
 - Dependency versions require deliberate pinning.
 - Node startup and process control become measurable release gates.
 
-## OPEN
+## Closure
 
-- **Node LTS version.** Closes when the implementation agent checks current supported Node releases and selects the oldest release that satisfies all pinned dependencies and CI platforms.
+Node.js 22.13.0 is the minimum supported release. It passed the full Linux
+suite and packed install; CI pins the same release on Linux and macOS. The
+30-sample measurements in `spec/benchmark/performance-results.md` pass every
+startup and fixture threshold, so the overturn path is not triggered.

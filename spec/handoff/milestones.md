@@ -105,6 +105,9 @@ Measure ADR-002 thresholds on warm macOS and Linux:
 
 Record any failed threshold as an OPEN implementation-language review item; do not silently broaden limits.
 
+Recorded result: all macOS and Linux thresholds pass. See
+`spec/benchmark/performance-results.md`.
+
 ## M4 — Materialized fixtures and deterministic PR suite
 
 **Entry:** M3 passes prepared Task 01–03 diffs.  

@@ -1,6 +1,6 @@
 # Specification readiness summary
 
-**Status:** implementation handoff ready, with explicit evidence gates
+**Status:** alpha implementation and product-purpose validation complete; public publication deferred
 
 ## Fully specified alpha behavior
 
@@ -22,7 +22,7 @@ The tree now defines:
 
 | DoD item | Specification status |
 |---|---|
-| Zero-config read-only `plan --diff` | Fully specified; implementation evidence OPEN |
+| Zero-config read-only `plan --diff` | Implemented and covered by the deterministic macOS/Linux suite |
 | Four outcomes including no-test/insufficient | Schemas, rules, fixtures, and goldens specified |
 | Correct boundary on Task 03 | Fixture, hidden oracle, and expected scope specified |
 | Claude bounded continuation | Contract tests plus fresh BrowserOS native receipts; no remediation loop observed |
@@ -33,12 +33,12 @@ The tree now defines:
 | Deterministic PR suite | Commands and expected coverage specified |
 | Two-task dual-host launch compatibility | Passed on Claude and Codex with no full-arm regression and hooks only in full arms; statistical efficacy deferred |
 | Product-purpose real-repository validation | Type-only no-test behavior passed on both hosts; pagination reused the owning suite; historical replay removed one duplicate suite while retained fault detection held |
-| macOS/Linux install/uninstall | Host specs and milestone checks specified; execution OPEN |
+| macOS/Linux install/uninstall | Packed CLI install/uninstall passed; Node 22.13 Linux and current macOS native checks passed; CI pins both operating systems |
 
-## Remaining blockers
+## Remaining publication and post-alpha work
 
-The remaining OPEN items are release evidence rather than missing core product behavior: clean supported macOS/Linux installation, SBOM/provenance, measured TypeScript thresholds, exact packaged-host install proof, namespace/legal review, and contributor governance. Raw host payloads are not retained. The dual-host checks and one real-repository removal are complete, but one repetition does not support a statistical efficacy claim. See `spec/handoff/open-register.md`.
+No open item blocks local alpha implementation or validation. Public npm publication remains deferred by owner direction. Namespace/legal review is still required before relying on the name publicly; contributor governance is required before accepting external contributions. Native Windows, Python, mutation adapters, marketplace submission, and broader real-repository sampling remain post-alpha work. Raw host payloads are not retained. The dual-host checks and one real-repository removal are directional evidence, not a statistical reduction claim. See `spec/handoff/open-register.md`.
 
 ## Handoff determination
 
-The ruling's vertical slice and the owner-amended dual-host extension are implementable from `spec/handoff/` plus its referenced schemas/ADRs without inventing policy, fixture content, command outcomes, or hook-loop behavior. Implementation must not claim certification until current installation, native receipt, and canary evidence closes the named OPEN items.
+The ruling's vertical slice and the owner-amended dual-host extension are implemented. Current installation, native receipt, historical replay, forward A/B, packaging, Linux, and performance evidence close the implementation-owned alpha items. Publication remains a separate action.
